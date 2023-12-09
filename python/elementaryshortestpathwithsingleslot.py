@@ -4,7 +4,7 @@ from operator import attrgetter
 from re import DEBUG
 import numpy as np
 
-DEBUG = False
+DEBUG = True
 
 
 class Location:
@@ -93,6 +93,16 @@ class Instance:
 
 
 def dynamic_programming(instance):
+    if DEBUG:
+        n = len(instance.locations)
+        print("matrix cost :")
+        for i in range(n):
+            for j in range(n):
+                if i != j:
+                    print(instance.cost(i, j), end=" ")
+                else:
+                    print("0", end=" ")
+            print("")
     if instance.locations == []:
         return []
     depot = instance.locations[0]
@@ -101,6 +111,7 @@ def dynamic_programming(instance):
     nbClient = len(instance.locations)
     orderedLocation = sorted(
         listClient, key=attrgetter('visit_interval'))
+
     if DEBUG:
         print("--Loc--")
         for i in instance.locations:
@@ -108,7 +119,6 @@ def dynamic_programming(instance):
         print("--SortedLoc--")
         for i in orderedLocation:
             print(i.visit_interval)
-        print("duration = ", instance.duration(7, 2))
     c = np.zeros((nbClient, nbClient), dtype=object)
     for i in range(nbClient):
         for j in range(nbClient):
@@ -128,6 +138,7 @@ def dynamic_programming(instance):
                                   (0, [], 0), key=lambda a: a[0])
                 else:
                     c[i][j] = c[i][j-1]
+    print(c)
     print("chosen path = ", c[-1][-1][1])
     print("total cost = ", c[-1][-1][0])
     return c[-1][-1][1]

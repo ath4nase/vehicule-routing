@@ -20,10 +20,10 @@ class Instance:
             with open(filepath) as json_file:
                 data = json.load(json_file)
                 locations = zip(
-                        data["visit_intervals"],
-                        data["xs"],
-                        data["ys"],
-                        data["values"])
+                    data["visit_intervals"],
+                    data["xs"],
+                    data["ys"],
+                    data["values"])
                 for (intervals, x, y, value) in locations:
                     self.add_location(intervals, x, y, value)
 
@@ -72,9 +72,9 @@ class Instance:
                 t = current_time + self.duration(location_pred_id, location_id)
                 try:
                     interval = min(
-                            (interval for interval in location.visit_intervals
-                             if interval[0] >= t),
-                            key=lambda interval: interval[1])
+                        (interval for interval in location.visit_intervals
+                         if interval[0] >= t),
+                        key=lambda interval: interval[1])
                     current_time = interval[1]
                 except ValueError:
                     on_time = False
@@ -83,9 +83,9 @@ class Instance:
             total_cost += self.cost(location_pred_id, 0)
             number_of_duplicates = len(locations) - len(set(locations))
             is_feasible = (
-                    (number_of_duplicates == 0)
-                    and (on_time)
-                    and 0 not in locations)
+                (number_of_duplicates == 0)
+                and (on_time)
+                and 0 not in locations)
             print(f"Number of duplicates: {number_of_duplicates}")
             print(f"On time: {on_time}")
             print(f"Feasible: {is_feasible}")
@@ -200,19 +200,19 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
-            "-a", "--algorithm",
-            type=str,
-            default="iterative_beam_search",
-            help='')
+        "-a", "--algorithm",
+        type=str,
+        default="iterative_beam_search",
+        help='')
     parser.add_argument(
-            "-i", "--instance",
-            type=str,
-            help='')
+        "-i", "--instance",
+        type=str,
+        help='')
     parser.add_argument(
-            "-c", "--certificate",
-            type=str,
-            default=None,
-            help='')
+        "-c", "--certificate",
+        type=str,
+        default=None,
+        help='')
 
     args = parser.parse_args()
 
@@ -235,24 +235,24 @@ if __name__ == "__main__":
                 y = random.randint(0, 100)
                 value = random.randint(0, 100)
                 instance.add_location(
-                        [(s1, s1 + p1), (s2, s2 + p2)], x, y, value)
+                    [(s1, s1 + p1), (s2, s2 + p2)], x, y, value)
             instance.write(
-                    args.instance + "_" + str(number_of_locations) + ".json")
+                args.instance + "_" + str(number_of_locations) + ".json")
 
     else:
         instance = Instance(args.instance)
         branching_scheme = BranchingScheme(instance)
         if args.algorithm == "greedy":
             output = treesearchsolverpy.greedy(
-                    branching_scheme)
+                branching_scheme)
         elif args.algorithm == "best_first_search":
             output = treesearchsolverpy.best_first_search(
-                    branching_scheme,
-                    time_limit=30)
+                branching_scheme,
+                time_limit=30)
         elif args.algorithm == "iterative_beam_search":
             output = treesearchsolverpy.iterative_beam_search(
-                    branching_scheme,
-                    time_limit=30)
+                branching_scheme,
+                time_limit=30)
         solution = branching_scheme.to_solution(output["solution_pool"].best)
         if args.certificate is not None:
             data = {"locations": solution}
