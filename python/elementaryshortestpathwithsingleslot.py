@@ -93,16 +93,7 @@ class Instance:
 
 
 def dynamic_programming(instance):
-    if DEBUG:
-        n = len(instance.locations)
-        print("matrix cost :")
-        for i in range(n):
-            for j in range(n):
-                if i != j:
-                    print(instance.cost(i, j), end=" ")
-                else:
-                    print("0", end=" ")
-            print("")
+
     if instance.locations == []:
         return []
     depot = instance.locations[0]
@@ -113,34 +104,42 @@ def dynamic_programming(instance):
         listClient, key=attrgetter('visit_interval'))
 
     if DEBUG:
+        for i in range(len(listClient)):
+            for j in range(len(listClient)):
+                if i != j:
+                    print(instance.cost(i, j), end=" ")
+                else:
+                    print(0, end=" ")
+            print("")
         print("--Loc--")
         for i in instance.locations:
             print(i.visit_interval)
         print("--SortedLoc--")
         for i in orderedLocation:
             print(i.visit_interval)
+
     c = np.zeros((nbClient, nbClient), dtype=object)
-    for i in range(nbClient):
-        for j in range(nbClient):
-            if i == 0 or j == 0:
-                c[i][j] = (0, [], 0)
+    for k in range(nbClient):
+        for l in range(nbClient):
+            if l == 0 or k == 0:
+                c[k][l] = (0, [])
             else:
-                prevLocation = c[i][j-1][1]
-                if prevLocation == []:
-                    prevLocation = 0
-                else:
-                    prevLocation = c[i][j-1][1][-1]
-                if orderedLocation[i].visit_interval[0] >= (c[i][j-1][2]+instance.duration(prevLocation, orderedLocation[i].id)):
-                    tpath = c[i][j-1][1].copy()
-                    tpath.append(orderedLocation[i].id)
-                    c[i][j] = min(c[i-1][j], (path_cost(tpath, instance), tpath,
-                                  instance.locations[tpath[-1]].visit_interval[1]),
-                                  (0, [], 0), key=lambda a: a[0])
-                else:
-                    c[i][j] = c[i][j-1]
+                temp = []
+                for kp in range(0, k):
+                    for lp in range(0, kp+1):
+                        cost = c[kp][lp][0]+instance.cost(orderedLocation[lp].id, orderedLocation[l].id)+instance.cost(
+                            orderedLocation[l].id, depot.id)-instance.cost(orderedLocation[lp].id, depot.id)
+                        path = c[kp][lp][1].copy()
+                        if path == []:
+                            path.append(orderedLocation[l].id)
+                        if path[-1] != orderedLocation[l].id:
+                            path.append(orderedLocation[l].id)
+                        temp.append((cost, path))
+                print("-------------------------------------")
+                print(c)
+                c[k][l] = (min(temp, key=lambda a: a[0]))
+    print("-------------------------------------")
     print(c)
-    print("chosen path = ", c[-1][-1][1])
-    print("total cost = ", c[-1][-1][0])
     return c[-1][-1][1]
 
 
