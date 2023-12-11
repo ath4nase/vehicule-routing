@@ -1,16 +1,29 @@
 import json
 import math
 
+INF = 10000000
 
 class Location:
     id = -1
-    visit_interval = 0
+    visit_interval: list[int]
     x = 0
     y = 0
     value = 0
 
+    def depot():
+        depot = Location()
+        depot.visit_interval = [-INF, INF]
+        return depot
+    
+    def get_beginning(self):
+        return self.visit_interval[0]
+    def get_end(self):
+        return self.visit_interval[1]
+
 
 class Instance:
+
+    locations : list[Location]
 
     def __init__(self, filepath=None):
         self.locations = []
@@ -85,11 +98,17 @@ class Instance:
             print(f"Feasible: {is_feasible}")
             print(f"Cost: {total_cost}")
             return (is_feasible, total_cost)
+        
+    def time_range(self):
+        max = 0
+        for location in self.locations :
+            if location.visit_interval[1] > max :
+                max = location.get_end()
+        return max
 
-
-def dynamic_programming(instance):
+def dynamic_programming(instance:Instance):
+    depot = Location.depot()
     # TODO START
-    pass
     # TODO END
 
 
