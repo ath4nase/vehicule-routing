@@ -111,6 +111,15 @@ def dynamic_programming(instance):
                 else:
                     print(0, end=" ")
             print("")
+        print("----------------------")
+        for i in range(len(listClient)):
+            for j in range(len(listClient)):
+                if i != j:
+                    print(instance.duration(i, j), end=" ")
+                else:
+                    print(0, end=" ")
+            print("")
+         
         print("--Loc--")
         for i in instance.locations:
             print(i.visit_interval)
@@ -127,20 +136,35 @@ def dynamic_programming(instance):
                 temp = []
                 for kp in range(0, k):
                     for lp in range(0, kp+1):
-                        cost = c[kp][lp][0]+instance.cost(orderedLocation[lp].id, orderedLocation[l].id)+instance.cost(
-                            orderedLocation[l].id, depot.id)-instance.cost(orderedLocation[lp].id, depot.id)
                         path = c[kp][lp][1].copy()
+                        cost = c[kp][lp][0]+costIdToId(lp, l, orderedLocation) + costToDepot(
+                            l, orderedLocation)-costToDepot(lp, orderedLocation)
                         if path == []:
                             path.append(orderedLocation[l].id)
                         if path[-1] != orderedLocation[l].id:
                             path.append(orderedLocation[l].id)
-                        temp.append((cost, path))
-                print("-------------------------------------")
-                print(c)
+                        if len(path) > 1 and instance.duration(path[-2], path[-2])+instance.locations[path[-2]].visit_interval[1] < instance.locations[path[-1]].visit_interval[0]:
+                            temp.append((cost, path))
+                        if len(path) == 1:
+                            temp.append((cost, path))
+
+                print("k = ", k, " l = ", l, " temp", temp)
                 c[k][l] = (min(temp, key=lambda a: a[0]))
     print("-------------------------------------")
     print(c)
     return c[-1][-1][1]
+
+
+def costIdToId(ordered_id1, ordered_id2, orderedLocation):
+    if ordered_id1 == 0 and ordered_id2 == 0:
+        return 0
+    return instance.cost(orderedLocation[ordered_id1].id, orderedLocation[ordered_id2].id)
+
+
+def costToDepot(ordered_id1, orderedLocation):
+    if ordered_id1 == 0:
+        return 0
+    return instance.cost(orderedLocation[ordered_id1].id, 0)
 
 
 # give the total cost of a given path in the graph
