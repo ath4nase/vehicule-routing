@@ -4,7 +4,7 @@ from operator import attrgetter
 from re import DEBUG
 import numpy as np
 
-DEBUG = True
+DEBUG = False 
 
 
 class Location:
@@ -151,8 +151,6 @@ def dynamic_programming(instance):
                             temp.append((cost, path))
                         else:
                             temp.append((0, []))
-                        print(c)
-
                 # print("k = ", k, " l = ", l, " temp", temp)
                 c[k][l] = (min(temp, key=lambda a: a[0]))
     if DEBUG:
