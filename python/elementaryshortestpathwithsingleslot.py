@@ -102,7 +102,7 @@ def dynamic_programming(instance):
     nbClient = len(instance.locations)
     orderedLocation = sorted(
         listClient, key=attrgetter('visit_interval'))
-
+################################################
     if DEBUG:
         for i in range(len(listClient)):
             for j in range(len(listClient)):
@@ -126,6 +126,7 @@ def dynamic_programming(instance):
         print("--SortedLoc--")
         for i in orderedLocation:
             print(i.visit_interval)
+################################################
 
     c = np.zeros((nbClient, nbClient), dtype=object)
     for k in range(nbClient):
@@ -146,15 +147,17 @@ def dynamic_programming(instance):
                             path.append(orderedLocation[l].id)
                         if path[-1] != orderedLocation[l].id:
                             path.append(orderedLocation[l].id)
-                        if len(path) > 1 and instance.duration(path[-2], path[-2])+instance.locations[path[-2]].visit_interval[1] < instance.locations[path[-1]].visit_interval[0]:
+                        if instance.duration(orderedLocation[lp].id, orderedLocation[l].id)+instance.locations[orderedLocation[lp].id].visit_interval[1] < instance.locations[orderedLocation[l].id].visit_interval[0]:
                             temp.append((cost, path))
-                        if len(path) == 1:
-                            temp.append((cost, path))
+                        else:
+                            temp.append((0, []))
+                        print(c)
 
                 # print("k = ", k, " l = ", l, " temp", temp)
                 c[k][l] = (min(temp, key=lambda a: a[0]))
-    print("-------------------------------------")
-    print(c)
+    if DEBUG:
+        print("-------------------------------------")
+        print(c)
     res = min(c[-1], key= lambda a: a[0])[1] 
     print(res)
     return res 
