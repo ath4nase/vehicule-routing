@@ -119,7 +119,7 @@ def dynamic_programming(instance):
                 else:
                     print(0, end=" ")
             print("")
-         
+
         print("--Loc--")
         for i in instance.locations:
             print(i.visit_interval)
@@ -137,8 +137,11 @@ def dynamic_programming(instance):
                 for kp in range(0, k):
                     for lp in range(0, kp+1):
                         path = c[kp][lp][1].copy()
-                        cost = c[kp][lp][0]+costIdToId(lp, l, orderedLocation) + costToDepot(
-                            l, orderedLocation)-costToDepot(lp, orderedLocation)
+                        if lp == l:
+                            cost = c[kp][lp][0]
+                        else:
+                            cost = c[kp][lp][0]+costIdToId(lp, l, orderedLocation) + costToDepot(
+                                l, orderedLocation)-costToDepot(lp, orderedLocation)
                         if path == []:
                             path.append(orderedLocation[l].id)
                         if path[-1] != orderedLocation[l].id:
@@ -148,11 +151,13 @@ def dynamic_programming(instance):
                         if len(path) == 1:
                             temp.append((cost, path))
 
-                print("k = ", k, " l = ", l, " temp", temp)
+                # print("k = ", k, " l = ", l, " temp", temp)
                 c[k][l] = (min(temp, key=lambda a: a[0]))
     print("-------------------------------------")
     print(c)
-    return c[-1][-1][1]
+    res = min(c[-1], key= lambda a: a[0])[1] 
+    print(res)
+    return res 
 
 
 def costIdToId(ordered_id1, ordered_id2, orderedLocation):
