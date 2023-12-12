@@ -1,7 +1,10 @@
 import json
 import math
+from operator import attrgetter
 import columngenerationsolverpy
+import numpy as np
 
+DEBUG = False
 
 class Location:
     id = None
@@ -13,7 +16,7 @@ class Location:
 class Instance:
 
     def __init__(self, filepath=None):
-        self.locations = []
+        self.locations : list[Location] = []
         if filepath is not None:
             with open(filepath) as json_file:
                 data = json.load(json_file)
@@ -98,24 +101,121 @@ class PricingSolver:
     def solve_pricing(self, duals):
         # Build subproblem instance.
         # TODO START
+        depot : Location = instance.locations[0]
+        depot.visit_interval = [0, 0]
+        listClient  : list[Location]= instance.locations
+        nbClient = len(instance.locations)
+        orderedLocation = sorted(
+            listClient, key=attrgetter('visit_interval'))
         # TODO END
 
         # Solve subproblem instance.
         # TODO START
+    ################################################
+        if DEBUG:
+            for i in range(len(listClient)):
+                for j in range(len(listClient)):
+                    if i != j:
+                        print(instance.cost(i, j), end=" ")
+                    else:
+                        print(0, end=" ")
+                print("")
+            print("----------------------")
+            for i in range(len(listClient)):
+                for j in range(len(listClient)):
+                    if i != j:
+                        print(instance.duration(i, j), end=" ")
+                    else:
+                        print(0, end=" ")
+                print("")
+
+            print("--Loc--")
+            for i in instance.locations:
+                print(i.visit_interval)
+            print("--SortedLoc--")
+            for i in orderedLocation:
+                print(i.visit_interval)
+    ################################################
+
+        c = np.zeros((nbClient, nbClient), dtype=object)
+        for k in range(nbClient):
+            for l in range(nbClient):
+                if l == 0 or k == 0:
+                    c[k][l] = (0, [])
+                else:
+                    temp = []
+                    for kp in range(0, k):
+                        for lp in range(0, kp+1):
+                            path = c[kp][lp][1].copy()
+                            if lp == l:
+                                cost = c[kp][lp][0]
+                            else:
+                                cost = c[kp][lp][0]+reducedcostIdToId(lp, l, orderedLocation, duals) + reducedcostToDepot(
+                                    l, orderedLocation, duals)-reducedcostToDepot(lp, orderedLocation, duals)
+                            if path == []:
+                                path.append(orderedLocation[l].id)
+                            if path[-1] != orderedLocation[l].id:
+                                path.append(orderedLocation[l].id)
+                            if instance.duration(orderedLocation[lp].id, orderedLocation[l].id)+instance.locations[orderedLocation[lp].id].visit_interval[1] < instance.locations[orderedLocation[l].id].visit_interval[0]:
+                                temp.append((cost, path))
+                            else:
+                                temp.append((0, []))
+                    # print("k = ", k, " l = ", l, " temp", temp)
+                    c[k][l] = (min(temp, key=lambda a: a[0]))
+        if DEBUG:
+            print("-------------------------------------")
+            print(c)
+        res : list[Location]= min(c[-1], key= lambda a: a[0])[1] 
         # TODO END
 
         # Retrieve column.
         column = columngenerationsolverpy.Column()
         # TODO START
+        column.objective_coefficient = 1
+        if res == []:
+            return [column]
+        u = depot
+        for i in range(len(res)):
+            v = res[i]
+            column.row_indices.append(len(orderedLocation)*u.id + v.id)
+            column.row_coefficients.append(1)
+            u = v
+        column.row_indices.append(len(orderedLocation)*v.id + depot.id)
+        column.row_coefficients.append(1)
         # TODO END
 
         return [column]
 
 
-def get_parameters(instance):
+def reducedcostIdToId(ordered_id1, ordered_id2, orderedLocation, duals):
+    if ordered_id1 == 0 and ordered_id2 == 0:
+        return 0
+    return instance.cost(orderedLocation[ordered_id1].id, orderedLocation[ordered_id2].id) - duals[ordered_id1] - duals[ordered_id2]
+
+
+def reducedcostToDepot(ordered_id1, orderedLocation, duals):
+    if ordered_id1 == 0:
+        return 0 - duals[ordered_id1] - duals[0]
+    return instance.cost(orderedLocation[ordered_id1].id, 0) - duals[ordered_id1] - duals[0]
+
+
+def get_parameters(instance: Instance):
     # TODO START
-    number_of_constraints = None
+    number_of_constraints = len(instance.locations)
     p = columngenerationsolverpy.Parameters(number_of_constraints)
+    p.objective_sense = "min"
+
+    # column bounds
+    p.column_lower_bound = 0
+    p.column_upper_bound = 1
+    # row bounds
+    for location in instance.locations:
+        p.row_lower_bounds[location.id] = 1
+        p.row_upper_bounds[location.id] = 1
+        p.row_coefficient_lower_bounds[location.id] = 1
+        p.row_coefficient_upper_bounds[location.id] = 1
+        
+        p.dummy_column_objective_coefficient = 2
     # TODO END
     # Pricing solver.
     p.pricing_solver = PricingSolver(instance)
