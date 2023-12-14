@@ -4,35 +4,50 @@ from operator import attrgetter
 import columngenerationsolverpy
 import numpy as np
 
-DEBUG = False
+DEBUG = True
 
 class Location:
-    id = None
-    visit_interval = None
-    x = None
-    y = None
+    id = -1
+    visit_interval: list[int]
+    x = 0
+    y = 0
+    value = 0
+
+    def depot():
+        depot = Location()
+        depot.visit_interval = [-INF, INF]
+        return depot
+    
+    def get_beginning(self):
+        return self.visit_interval[0]
+    def get_end(self):
+        return self.visit_interval[1]
 
 
 class Instance:
 
+    locations : list[Location]
+
     def __init__(self, filepath=None):
-        self.locations : list[Location] = []
+        self.locations = []
         if filepath is not None:
             with open(filepath) as json_file:
                 data = json.load(json_file)
                 locations = zip(
                         data["visit_intervals"],
                         data["xs"],
-                        data["ys"])
-                for (intervals, x, y) in locations:
-                    self.add_location(intervals[0], x, y)
+                        data["ys"],
+                        data["values"])
+                for (intervals, x, y, value) in locations:
+                    self.add_location(intervals[0], x, y, value)
 
-    def add_location(self, visit_interval, x, y):
+    def add_location(self, visit_interval, x, y, value):
         location = Location()
         location.id = len(self.locations)
         location.visit_interval = visit_interval
         location.x = x
         location.y = y
+        location.value = value
         self.locations.append(location)
 
     def duration(self, location_id_1, location_id_2):
@@ -41,11 +56,18 @@ class Instance:
         d = round(math.sqrt(xd * xd + yd * yd))
         return d
 
+    def cost(self, location_id_1, location_id_2):
+        xd = self.locations[location_id_2].x - self.locations[location_id_1].x
+        yd = self.locations[location_id_2].y - self.locations[location_id_1].y
+        d = round(math.sqrt(xd * xd + yd * yd))
+        return d - self.locations[location_id_2].value
+
     def write(self, filepath):
-        data = {"visit_intervals": [location.visit_interval
+        data = {"visit_intervals": [location.visit_intervals
                                     for location in self.locations],
                 "xs": [location.x for location in self.locations],
-                "ys": [location.y for location in self.locations]}
+                "ys": [location.y for location in self.locations],
+                "values": [location.value for location in self.locations]}
         with open(filepath, 'w') as json_file:
             json.dump(data, json_file)
 
@@ -54,36 +76,38 @@ class Instance:
         print("-------")
         with open(filepath) as json_file:
             data = json.load(json_file)
-            # Compute total_distance.
-            total_travelled_distance = 0
+            locations = data["locations"]
             on_time = True
-            for locations in data["locations"]:
-                current_time = -math.inf
-                location_pred_id = 0
-                for location_id in locations:
-                    location = self.locations[location_id]
-                    d = self.duration(location_pred_id, location_id)
-                    total_travelled_distance += d
-                    t = current_time + d
-                    if t <= location.visit_interval[0]:
-                        current_time = location.visit_interval[1]
-                    else:
-                        on_time = False
-                    location_pred_id = location_id
-                total_travelled_distance += self.duration(location_pred_id, 0)
-            # Compute number_of_locations.
+            total_cost = 0
+            current_time = -math.inf
+            location_pred_id = 0
+            for location_id in data["locations"]:
+                location = self.locations[location_id]
+                t = current_time + self.duration(location_pred_id, location_id)
+                if t <= location.visit_interval[0]:
+                    current_time = location.visit_interval[1]
+                else:
+                    on_time = False
+                total_cost += self.cost(location_pred_id, location_id)
+                location_pred_id = location_id
+            total_cost += self.cost(location_pred_id, 0)
             number_of_duplicates = len(locations) - len(set(locations))
-
             is_feasible = (
                     (number_of_duplicates == 0)
                     and (on_time)
                     and 0 not in locations)
-            objective_value = total_travelled_distance
             print(f"Number of duplicates: {number_of_duplicates}")
             print(f"On time: {on_time}")
-            print(f"Total travelled distance: {total_travelled_distance}")
             print(f"Feasible: {is_feasible}")
-            return (is_feasible, objective_value)
+            print(f"Cost: {total_cost}")
+            return (is_feasible, total_cost)
+        
+    def time_range(self):
+        max = 0
+        for location in self.locations :
+            if location.visit_interval[1] > max :
+                max = location.get_end()
+        return max
 
 
 class PricingSolver:
@@ -91,6 +115,7 @@ class PricingSolver:
     def __init__(self, instance):
         self.instance = instance
         # TODO START
+
         # TODO END
 
     def initialize_pricing(self, columns, fixed_columns):
@@ -165,7 +190,8 @@ class PricingSolver:
         if DEBUG:
             print("-------------------------------------")
             print(c)
-        res : list[Location]= min(c[-1], key= lambda a: a[0])[1] 
+        res : list[Location]= [instance.locations[i]for i in min(c[-1], key= lambda a: a[0])[1]]
+        print ([loc.id for loc in res])
         # TODO END
 
         # Retrieve column.
@@ -190,18 +216,18 @@ class PricingSolver:
 def reducedcostIdToId(ordered_id1, ordered_id2, orderedLocation, duals):
     if ordered_id1 == 0 and ordered_id2 == 0:
         return 0
-    return instance.cost(orderedLocation[ordered_id1].id, orderedLocation[ordered_id2].id) - duals[ordered_id1] - duals[ordered_id2]
+    return instance.cost(orderedLocation[ordered_id1].id, orderedLocation[ordered_id2].id) - .5*(duals[ordered_id1-1] - duals[ordered_id2-1])
 
 
 def reducedcostToDepot(ordered_id1, orderedLocation, duals):
     if ordered_id1 == 0:
-        return 0 - duals[ordered_id1] - duals[0]
-    return instance.cost(orderedLocation[ordered_id1].id, 0) - duals[ordered_id1] - duals[0]
+        return 0 - duals[ordered_id1 -1]
+    return instance.cost(orderedLocation[ordered_id1].id, 0) - .5*duals[ordered_id1-1]
 
 
 def get_parameters(instance: Instance):
     # TODO START
-    number_of_constraints = len(instance.locations)
+    number_of_constraints = len(instance.locations) - 1
     p = columngenerationsolverpy.Parameters(number_of_constraints)
     p.objective_sense = "min"
 
@@ -209,11 +235,11 @@ def get_parameters(instance: Instance):
     p.column_lower_bound = 0
     p.column_upper_bound = 1
     # row bounds
-    for location in instance.locations:
-        p.row_lower_bounds[location.id] = 1
-        p.row_upper_bounds[location.id] = 1
-        p.row_coefficient_lower_bounds[location.id] = 1
-        p.row_coefficient_upper_bounds[location.id] = 1
+    for i in range(number_of_constraints):
+        p.row_lower_bounds[i] = 0
+        p.row_upper_bounds[i] = 1
+        p.row_coefficient_lower_bounds[i] = 0
+        p.row_coefficient_upper_bounds[i] = 1
         
         p.dummy_column_objective_coefficient = 2
     # TODO END
@@ -257,8 +283,7 @@ if __name__ == "__main__":
 
     elif args.algorithm == "column_generation":
         instance = Instance(args.instance)
-        output = columngenerationsolverpy.column_generation(
-                get_parameters(instance))
+        output = columngenerationsolverpy.column_generation(get_parameters(instance))
 
     else:
         instance = Instance(args.instance)
