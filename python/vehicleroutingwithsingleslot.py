@@ -4,6 +4,7 @@ from operator import attrgetter
 import columngenerationsolverpy
 import numpy as np
 
+INF = 100000000
 DEBUG = True
 
 class Location:
@@ -115,12 +116,17 @@ class PricingSolver:
     def __init__(self, instance):
         self.instance = instance
         # TODO START
-
+        self.already_visited : list[Location] = None
         # TODO END
 
     def initialize_pricing(self, columns, fixed_columns):
         # TODO START
-        pass
+        self.already_visited = [0 for _ in range(len(instance.locations))]
+        self.already_visited[0] = 1
+        for column_id, column_value in fixed_columns:
+            column = columns[column_id]
+            for row_index, row_coefficient in zip(column.row_indices, column.row_coefficients):
+                self.already_visited[row_index] += column_value*row_coefficient
         # TODO END
 
     def solve_pricing(self, duals):
@@ -197,7 +203,7 @@ class PricingSolver:
         # Retrieve column.
         column = columngenerationsolverpy.Column()
         # TODO START
-        column.objective_coefficient = 1
+        column.objective_coefficient = 0
         if res == []:
             return [column]
         u = depot
@@ -205,9 +211,11 @@ class PricingSolver:
             v = res[i]
             column.row_indices.append(len(orderedLocation)*u.id + v.id)
             column.row_coefficients.append(1)
+            column.objective_coefficient += instance.cost(u.id, v.id)
             u = v
         column.row_indices.append(len(orderedLocation)*v.id + depot.id)
         column.row_coefficients.append(1)
+        column.objective_coefficient += instance.cost(v.id, depot.id)
         # TODO END
 
         return [column]
@@ -251,9 +259,10 @@ def get_parameters(instance: Instance):
 def to_solution(columns, fixed_columns):
     solution = []
     for column, value in fixed_columns:
-        # TODO START
-        pass
-        # TODO END
+        s = []
+        for index, coef in zip(column.row_indices, column.row_coefficients):
+            s += [index] * coef
+        solution.append((value, s))
     return solution
 
 
