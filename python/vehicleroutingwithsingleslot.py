@@ -16,7 +16,7 @@ class Location:
 class Instance:
 
     def __init__(self, filepath=None):
-        self.locations = []
+        self.locations : list[Location] = []
         if filepath is not None:
             with open(filepath) as json_file:
                 data = json.load(json_file)
@@ -111,12 +111,10 @@ class PricingSolver:
         depot.visit_interval = [0, 0]
         listClient  : list[Location]= []
         for i in range(len(instance.locations)):
-            if (self.already_visited[i] == 1):
+            if (self.already_visited[i] > .5):
                 continue
             listClient.append(instance.locations[i])
         nbClient = len(listClient)
-        orderedLocation = sorted(
-            listClient, key=attrgetter('visit_interval'))
         print("-- To visit--")
         print([v.id for v in listClient])
         # TODO END
@@ -128,7 +126,7 @@ class PricingSolver:
             for i in range(len(listClient)):
                 for j in range(len(listClient)):
                     if i != j:
-                        print(reducedcostIdToId(i, j, listClient, duals), end=" ")
+                        print(reducedcostIdToId(i, j, duals), end=" ")
                     else:
                         print(0, end=" ")
                 print("")
@@ -136,13 +134,12 @@ class PricingSolver:
             print("--Loc--")
             for i in instance.locations:
                 print(i.visit_interval)
-            print("--SortedLoc--")
-            for i in orderedLocation:
-                print(i.visit_interval)
     ################################################
 
-        min_path_values = [INF for _ in range (len(listClient))]
-        predecessor = [None for _ in range(len(listClient))]
+        min_path_values = [INF for _ in range (nbClient)]
+        predecessor = [None for _ in range(nbClient)]
+        visited_clients = [{} for _ in range(nbClient)]
+        previous_visited_clients = [v for v in visited_clients]
         previous_values = [v for v in min_path_values]
 
         min_path_values[0] = 0
@@ -156,12 +153,13 @@ class PricingSolver:
             previous_values = [v for v in min_path_values]
             for i in range(nbClient):
                 for j in range(nbClient):
-                    if i != j and previous_values[i] + instance.duration(listClient[i].id, listClient[j].id) < min_path_values[j]:
+                    if feasible_and_improve(i, j, previous_values, min_path_values, previous_visited_clients, duals):
                         predecessor[j] = i
-                        min_path_values[j] =  previous_values[i] + instance.duration(listClient[i].id, listClient[j].id)
+                        min_path_values[j] =  previous_values[i] + reducedcostIdToId(listClient[i].id, listClient[j].id, duals)
+                        visited_clients[j] = {i}.union(previous_visited_clients[j])
         
         # then pick best cycle by adding the edge (u, depot) to the shortest path (depot, u)
-        best_path_end = min([(i, min_path_values[i] + instance.duration(listClient[i].id, 0)) for i in range(1,nbClient)], key= lambda a : a[1])
+        best_path_end = min([(i, min_path_values[i] + reducedcostIdToId(listClient[i].id, 0, duals)) for i in range(1,nbClient)], key= lambda a : a[1])
         res : list[Location] = []
         current = i
         while current != 0:
@@ -180,7 +178,7 @@ class PricingSolver:
         if res == []:
             return [column]
         u = depot
-        column.row_indices.append(u.id-1)
+        column.row_indices.append(u.id)
         column.row_coefficients.append(1)
         for i in range(len(res)):
             v = res[i]
@@ -189,22 +187,23 @@ class PricingSolver:
             column.objective_coefficient += instance.duration(u.id, v.id)
             u = v
         column.objective_coefficient += instance.duration(v.id, depot.id)
+        print("--Column value")
+        print(column.objective_coefficient)
         # TODO END
 
         return [column]
 
 
-def reducedcostIdToId(ordered_id1, ordered_id2, orderedLocation, duals):
+def reducedcostIdToId(ordered_id1, ordered_id2, duals):
     if ordered_id1 == 0 and ordered_id2 == 0:
         return 0
-    return instance.duration(orderedLocation[ordered_id1].id, orderedLocation[ordered_id2].id) - .5*(duals[ordered_id1-1] + duals[ordered_id2-1])
+    return instance.duration(instance.locations[ordered_id1].id, instance.locations[ordered_id2].id) - .5*(duals[ordered_id1-1] + duals[ordered_id2-1])
 
-
-def reducedcostToDepot(ordered_id1, orderedLocation, duals):
-    if ordered_id1 == 0:
-        return 0 - duals[ordered_id1 -1]
-    return instance.duration(orderedLocation[ordered_id1].id, 0) - .5*duals[ordered_id1-1]
-
+def feasible_and_improve(i, j, old_values, new_values, visited, duals):
+    feasible = i != j and instance.locations[i].visit_interval[1] + instance.duration(i, j) <= instance.locations[j].visit_interval[0]
+    elementary = not j in visited[i]
+    improved = old_values[i] + reducedcostIdToId(i, j, duals) < new_values[j]
+    return feasible and elementary and improved
 
 def get_parameters(instance: Instance):
     # TODO START
@@ -226,7 +225,7 @@ def get_parameters(instance: Instance):
     for i in range (len(instance.locations)):
         for j in range (len(instance.locations)):
             values.append(instance.duration(i, j))
-    p.dummy_column_objective_coefficient = 10
+    p.dummy_column_objective_coefficient = 2*max(values)
     print(" Coeff dummy = ", p.dummy_column_objective_coefficient)
     # TODO END
     # Pricing solver.
