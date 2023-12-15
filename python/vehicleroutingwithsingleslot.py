@@ -183,11 +183,11 @@ class PricingSolver:
         if res == []:
             return [column]
         u = depot
-        column.row_indices.append(u.id)
+        column.row_indices.append(u.id-1)
         column.row_coefficients.append(1)
         for i in range(len(res)):
             v = res[i]
-            column.row_indices.append(v.id)
+            column.row_indices.append(v.id-1)
             column.row_coefficients.append(1)
             column.objective_coefficient += instance.duration(u.id, v.id)
             u = v
