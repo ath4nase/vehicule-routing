@@ -2,7 +2,7 @@ import json
 import math
 import treesearchsolverpy
 from functools import total_ordering
-
+import numpy as np
 
 class Location:
     id = None
@@ -101,14 +101,45 @@ class BranchingScheme:
         id = None
         father = None
         # TODO START
+        visited = None #Save the number of visited node
+        time = 0 #current time
+        chosenInterval = None #Either 1 or 0 depending on which time we visited
+        cost = None
+        
         # TODO END
         guide = None
         next_child_pos = 0
+        next_child_interval = 0
 
         def __lt__(self, other):
             if self.guide != other.guide:
                 return self.guide < other.guide
             return self.id < other.id
+        
+        def next_child(self, instance):
+            print(self.idP)
+            print(self.next_child_pos)
+            comparisonTime = 0 if self.next_child_pos==0 else instance.duration(self.idP, self.next_child_pos)+self.time 
+            minTime = np.infty
+            minInterval = None
+            minId = None
+
+            #finding the next child in ordered way not allowing to go to an already visited client
+            for ii in range(self.instance.locations):
+                travel = self.instance.duration(self.idP, ii)
+                if (travel+self.time<minTime and travel>comparisonTime and ii not in self.visited):
+                    if travel+self.time <= self.instance.locations[ii].visit_intervals[0][0]:
+                        minTime = self.instance.locations[ii].visit_intervals[0][1]
+                        minInterval = 0
+                        minId = ii
+                
+                    if travel+self.time<=self.instance.locations[ii].visit_intervals[1][0]:
+                        minTime = self.instance.locations[ii].visit_intervals[1][1]
+                        minInterval = 1
+                        minId = ii
+                
+            self.next_child_pos = minId
+            self.next_child_interval = minInterval
 
     def __init__(self, instance):
         self.instance = instance
@@ -118,6 +149,32 @@ class BranchingScheme:
         node = self.Node()
         node.father = None
         # TODO START
+        node.visited = None
+        node.time = 0
+        node.cost = 0
+        node.idP = 0
+        
+        #finding the first closest child
+        minTime = np.infty
+        minInterval = None
+        minId = None
+
+        for ii in range(1,len(self.instance.locations)+1):
+            travel = self.instance.duration(0, ii)
+            if (travel+self.time<minTime):
+                if travel+self.time <= self.instance.locations[ii].visit_intervals[0][0]:
+                    minTime = self.instance.locations[ii].visit_intervals[0][1]
+                    minInterval = 0
+                    minId = ii
+            
+                if travel+self.time<=self.instance.locations[ii].visit_intervals[1][0]:
+                    minTime = self.instance.locations[ii].visit_intervals[1][1]
+                    minInterval = 1
+                    minId = ii
+                    
+        self.next_child_pos = minId
+        self.next_child_interval = minInterval
+    
         # TODO END
         node.guide = 0
         node.id = self.id
@@ -126,21 +183,50 @@ class BranchingScheme:
 
     def next_child(self, father):
         # TODO START
+        idNext = father.next_child_pos
+        intervalNext = father.next_child_interval
+        if idNext is None:
+            return None
+        #update the father node
+        father.next_child(self.instance)
+        
+        #build the child node
+        child = self.Node()
+        child.idP = idNext
+        child.chosenInterval = intervalNext
+        child.father = father
+        
+        child.visited = father.visited.append(idNext)
+        child.time = self.instance.locations[idNext].visit_intervals[intervalNext][1]
+        child.cost = father.cost+self.instance.cost(father.idP,idNext)
+        
+        child.next_child(self.instance)
+        
+        child.id = self.id
+        self.id +=1
+        
         pass
         # TODO END
 
     def infertile(self, node):
         # TODO START
+        return (node.next_child_pos is None)
         pass
         # TODO END
 
     def leaf(self, node):
         # TODO START
+        return (len(node.visited) == len(self.instance.locations)) 
         pass
         # TODO END
 
     def bound(self, node_1, node_2):
         # TODO START
+        if(node_2.idP !=0):
+            d2 = node_2.cost + self.instance.cost(node_2.idP, 0)
+        else:
+            return False
+        return node_1.cost >= d2
         pass
         # TODO END
 
@@ -148,11 +234,21 @@ class BranchingScheme:
 
     def better(self, node_1, node_2):
         # TODO START
+        # Compute the objective value of node_1.
+        d1 = node_1.cost + self.instance.cost(node_1.idP, 0)
+        # Compute the objective value of node_2.
+        d2 = node_2.length + self.instance.distance(node_2.idP, 0)
+        return d1 < d2
         pass
         # TODO END
 
     def equals(self, node_1, node_2):
         # TODO START
+        # Compute the objective value of node_1.
+        d1 = node_1.cost + self.instance.cost(node_1.idP, 0)
+        # Compute the objective value of node_2.
+        d2 = node_2.length + self.instance.distance(node_2.idP, 0)
+        return d1 == d2
         pass
         # TODO END
 
@@ -160,6 +256,7 @@ class BranchingScheme:
 
     def comparable(self, node):
         # TODO START
+        return True
         pass
         # TODO END
 
@@ -170,16 +267,25 @@ class BranchingScheme:
 
         def __hash__(self):
             # TODO START
+            return hash((self.node.idP, self.node.visited))
             pass
             # TODO END
 
         def __eq__(self, other):
             # TODO START
+            return (
+                    # Same last location.
+                    self.node.idP == other.node.idP
+                    # Same visited locations.
+                    and self.node.visited == other.node.visited)
             pass
             # TODO END
 
     def dominates(self, node_1, node_2):
         # TODO START
+        if node_1.cost <= node_2.cost:
+            return True
+        return False
         pass
         # TODO END
 
@@ -187,11 +293,19 @@ class BranchingScheme:
 
     def display(self, node):
         # TODO START
+        # Compute the objective value of node.
+        if(node.idP != 0):
+            d = node.cost + self.instance.cost(node.idP, 0)
+        else:
+            d = ""
+        return str(d)
+
         pass
         # TODO END
 
     def to_solution(self, node):
         # TODO START
+        return node.visited
         pass
         # TODO END
 
