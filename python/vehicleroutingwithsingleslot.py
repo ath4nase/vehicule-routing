@@ -2,32 +2,18 @@ import json
 import math
 from operator import attrgetter
 import columngenerationsolverpy
-import numpy as np
 
 INF = 100000000
 DEBUG = True
 
 class Location:
-    id = -1
-    visit_interval: list[int]
-    x = 0
-    y = 0
-    value = 0
-
-    def depot():
-        depot = Location()
-        depot.visit_interval = [-INF, INF]
-        return depot
-    
-    def get_beginning(self):
-        return self.visit_interval[0]
-    def get_end(self):
-        return self.visit_interval[1]
+    id = None
+    visit_interval = None
+    x = None
+    y = None
 
 
 class Instance:
-
-    locations : list[Location]
 
     def __init__(self, filepath=None):
         self.locations = []
@@ -37,18 +23,16 @@ class Instance:
                 locations = zip(
                         data["visit_intervals"],
                         data["xs"],
-                        data["ys"],
-                        data["values"])
-                for (intervals, x, y, value) in locations:
-                    self.add_location(intervals[0], x, y, value)
+                        data["ys"])
+                for (intervals, x, y) in locations:
+                    self.add_location(intervals[0], x, y)
 
-    def add_location(self, visit_interval, x, y, value):
+    def add_location(self, visit_interval, x, y):
         location = Location()
         location.id = len(self.locations)
         location.visit_interval = visit_interval
         location.x = x
         location.y = y
-        location.value = value
         self.locations.append(location)
 
     def duration(self, location_id_1, location_id_2):
@@ -57,18 +41,11 @@ class Instance:
         d = round(math.sqrt(xd * xd + yd * yd))
         return d
 
-    def cost(self, location_id_1, location_id_2):
-        xd = self.locations[location_id_2].x - self.locations[location_id_1].x
-        yd = self.locations[location_id_2].y - self.locations[location_id_1].y
-        d = round(math.sqrt(xd * xd + yd * yd))
-        return d - self.locations[location_id_2].value
-
     def write(self, filepath):
-        data = {"visit_intervals": [location.visit_intervals
+        data = {"visit_intervals": [location.visit_interval
                                     for location in self.locations],
                 "xs": [location.x for location in self.locations],
-                "ys": [location.y for location in self.locations],
-                "values": [location.value for location in self.locations]}
+                "ys": [location.y for location in self.locations]}
         with open(filepath, 'w') as json_file:
             json.dump(data, json_file)
 
@@ -77,38 +54,36 @@ class Instance:
         print("-------")
         with open(filepath) as json_file:
             data = json.load(json_file)
-            locations = data["locations"]
+            # Compute total_distance.
+            total_travelled_distance = 0
             on_time = True
-            total_cost = 0
-            current_time = -math.inf
-            location_pred_id = 0
-            for location_id in data["locations"]:
-                location = self.locations[location_id]
-                t = current_time + self.duration(location_pred_id, location_id)
-                if t <= location.visit_interval[0]:
-                    current_time = location.visit_interval[1]
-                else:
-                    on_time = False
-                total_cost += self.cost(location_pred_id, location_id)
-                location_pred_id = location_id
-            total_cost += self.cost(location_pred_id, 0)
+            for locations in data["locations"]:
+                current_time = -math.inf
+                location_pred_id = 0
+                for location_id in locations:
+                    location = self.locations[location_id]
+                    d = self.duration(location_pred_id, location_id)
+                    total_travelled_distance += d
+                    t = current_time + d
+                    if t <= location.visit_interval[0]:
+                        current_time = location.visit_interval[1]
+                    else:
+                        on_time = False
+                    location_pred_id = location_id
+                total_travelled_distance += self.duration(location_pred_id, 0)
+            # Compute number_of_locations.
             number_of_duplicates = len(locations) - len(set(locations))
+
             is_feasible = (
                     (number_of_duplicates == 0)
                     and (on_time)
                     and 0 not in locations)
+            objective_value = total_travelled_distance
             print(f"Number of duplicates: {number_of_duplicates}")
             print(f"On time: {on_time}")
+            print(f"Total travelled distance: {total_travelled_distance}")
             print(f"Feasible: {is_feasible}")
-            print(f"Cost: {total_cost}")
-            return (is_feasible, total_cost)
-        
-    def time_range(self):
-        max = 0
-        for location in self.locations :
-            if location.visit_interval[1] > max :
-                max = location.get_end()
-        return max
+            return (is_feasible, objective_value)
 
 
 class PricingSolver:
@@ -134,8 +109,12 @@ class PricingSolver:
         # TODO START
         depot : Location = instance.locations[0]
         depot.visit_interval = [0, 0]
-        listClient  : list[Location]= instance.locations
-        nbClient = len(instance.locations)
+        listClient  : list[Location]= []
+        for i in range(len(instance.locations)):
+            if (self.already_visited[i] == 1):
+                continue
+            listClient.append(instance.locations[i])
+        nbClient = len(listClient)
         orderedLocation = sorted(
             listClient, key=attrgetter('visit_interval'))
         # TODO END
@@ -147,7 +126,7 @@ class PricingSolver:
             for i in range(len(listClient)):
                 for j in range(len(listClient)):
                     if i != j:
-                        print(instance.cost(i, j), end=" ")
+                        print(instance.duration(i, j), end=" ")
                     else:
                         print(0, end=" ")
                 print("")
@@ -168,35 +147,32 @@ class PricingSolver:
                 print(i.visit_interval)
     ################################################
 
-        c = np.zeros((nbClient, nbClient), dtype=object)
-        for k in range(nbClient):
-            for l in range(nbClient):
-                if l == 0 or k == 0:
-                    c[k][l] = (0, [])
-                else:
-                    temp = []
-                    for kp in range(0, k):
-                        for lp in range(0, kp+1):
-                            path = c[kp][lp][1].copy()
-                            if lp == l:
-                                cost = c[kp][lp][0]
-                            else:
-                                cost = c[kp][lp][0]+reducedcostIdToId(lp, l, orderedLocation, duals) + reducedcostToDepot(
-                                    l, orderedLocation, duals)-reducedcostToDepot(lp, orderedLocation, duals)
-                            if path == []:
-                                path.append(orderedLocation[l].id)
-                            if path[-1] != orderedLocation[l].id:
-                                path.append(orderedLocation[l].id)
-                            if instance.duration(orderedLocation[lp].id, orderedLocation[l].id)+instance.locations[orderedLocation[lp].id].visit_interval[1] < instance.locations[orderedLocation[l].id].visit_interval[0]:
-                                temp.append((cost, path))
-                            else:
-                                temp.append((0, []))
-                    # print("k = ", k, " l = ", l, " temp", temp)
-                    c[k][l] = (min(temp, key=lambda a: a[0]))
-        if DEBUG:
-            print("-------------------------------------")
-            print(c)
-        res : list[Location]= [instance.locations[i]for i in min(c[-1], key= lambda a: a[0])[1]]
+        min_path_values = [INF for _ in range (len(listClient))]
+        predecessor = [None for _ in range(len(listClient))]
+        previous_values = [v for v in min_path_values]
+
+        min_path_values[0] = 0
+
+        # computing minimal path from depot for all clients
+        # if values doesn't change, finished. |V|-1 iteration at most
+        while(min_path_values != previous_values): 
+            previous_values = [v for v in min_path_values]
+            for i in range(nbClient):
+                for j in range(nbClient):
+                    if i != j and previous_values[i] + instance.duration(listClient[i].id, listClient[j].id) < min_path_values[j]:
+                        predecessor[j] = i
+                        min_path_values[j] =  previous_values[i] + instance.duration(listClient[i].id, listClient[j].id)
+        
+        # then pick best cycle by adding the edge (u, depot) to the shortest path (depot, u)
+        best_path_end = min([(i, min_path_values[i] + instance.duration(listClient[i].id, 0)) for i in range(1,nbClient)], key= lambda a : a[1])
+        res : list[Location] = []
+        current = i
+        while current != 0:
+            res.append(listClient[current])
+            current = predecessor[current]
+        
+        res.reverse()
+
         print ([loc.id for loc in res])
         # TODO END
 
@@ -207,15 +183,15 @@ class PricingSolver:
         if res == []:
             return [column]
         u = depot
+        column.row_indices.append(u.id)
+        column.row_coefficients.append(1)
         for i in range(len(res)):
             v = res[i]
-            column.row_indices.append(len(orderedLocation)*u.id + v.id)
+            column.row_indices.append(v.id)
             column.row_coefficients.append(1)
-            column.objective_coefficient += instance.cost(u.id, v.id)
+            column.objective_coefficient += instance.duration(u.id, v.id)
             u = v
-        column.row_indices.append(len(orderedLocation)*v.id + depot.id)
-        column.row_coefficients.append(1)
-        column.objective_coefficient += instance.cost(v.id, depot.id)
+        column.objective_coefficient += instance.duration(v.id, depot.id)
         # TODO END
 
         return [column]
@@ -224,13 +200,13 @@ class PricingSolver:
 def reducedcostIdToId(ordered_id1, ordered_id2, orderedLocation, duals):
     if ordered_id1 == 0 and ordered_id2 == 0:
         return 0
-    return instance.cost(orderedLocation[ordered_id1].id, orderedLocation[ordered_id2].id) - .5*(duals[ordered_id1-1] - duals[ordered_id2-1])
+    return instance.duration(orderedLocation[ordered_id1].id, orderedLocation[ordered_id2].id) - .5*(duals[ordered_id1-1] + duals[ordered_id2-1])
 
 
 def reducedcostToDepot(ordered_id1, orderedLocation, duals):
     if ordered_id1 == 0:
         return 0 - duals[ordered_id1 -1]
-    return instance.cost(orderedLocation[ordered_id1].id, 0) - .5*duals[ordered_id1-1]
+    return instance.duration(orderedLocation[ordered_id1].id, 0) - .5*duals[ordered_id1-1]
 
 
 def get_parameters(instance: Instance):
@@ -244,12 +220,11 @@ def get_parameters(instance: Instance):
     p.column_upper_bound = 1
     # row bounds
     for i in range(number_of_constraints):
-        p.row_lower_bounds[i] = 0
+        p.row_lower_bounds[i] = 1
         p.row_upper_bounds[i] = 1
         p.row_coefficient_lower_bounds[i] = 0
         p.row_coefficient_upper_bounds[i] = 1
-        
-        p.dummy_column_objective_coefficient = 2
+    p.dummy_column_objective_coefficient = sum([instance.duration(i,j) for i,j in zip(range(len(instance.locations)), range(len(instance.locations)))])
     # TODO END
     # Pricing solver.
     p.pricing_solver = PricingSolver(instance)
