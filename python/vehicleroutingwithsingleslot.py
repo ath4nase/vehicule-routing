@@ -117,6 +117,8 @@ class PricingSolver:
         nbClient = len(listClient)
         orderedLocation = sorted(
             listClient, key=attrgetter('visit_interval'))
+        print("-- To visit--")
+        print([v.id for v in listClient])
         # TODO END
 
         # Solve subproblem instance.
@@ -126,15 +128,7 @@ class PricingSolver:
             for i in range(len(listClient)):
                 for j in range(len(listClient)):
                     if i != j:
-                        print(instance.duration(i, j), end=" ")
-                    else:
-                        print(0, end=" ")
-                print("")
-            print("----------------------")
-            for i in range(len(listClient)):
-                for j in range(len(listClient)):
-                    if i != j:
-                        print(instance.duration(i, j), end=" ")
+                        print(reducedcostIdToId(i, j, listClient, duals), end=" ")
                     else:
                         print(0, end=" ")
                 print("")
@@ -152,6 +146,9 @@ class PricingSolver:
         previous_values = [v for v in min_path_values]
 
         min_path_values[0] = 0
+
+        print("--Dual values--")
+        print(duals)
 
         # computing minimal path from depot for all clients
         # if values doesn't change, finished. |V|-1 iteration at most
@@ -224,7 +221,13 @@ def get_parameters(instance: Instance):
         p.row_upper_bounds[i] = 1
         p.row_coefficient_lower_bounds[i] = 0
         p.row_coefficient_upper_bounds[i] = 1
-    p.dummy_column_objective_coefficient = sum([instance.duration(i,j) for i,j in zip(range(len(instance.locations)), range(len(instance.locations)))])
+    
+    values = []
+    for i in range (len(instance.locations)):
+        for j in range (len(instance.locations)):
+            values.append(instance.duration(i, j))
+    p.dummy_column_objective_coefficient = 10
+    print(" Coeff dummy = ", p.dummy_column_objective_coefficient)
     # TODO END
     # Pricing solver.
     p.pricing_solver = PricingSolver(instance)
