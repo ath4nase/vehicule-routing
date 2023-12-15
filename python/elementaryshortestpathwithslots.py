@@ -105,6 +105,7 @@ class BranchingScheme:
         time = 0 #current time
         chosenInterval = None #Either 1 or 0 depending on which time we visited
         cost = None
+        idP = None
         
         # TODO END
         guide = None
@@ -117,15 +118,13 @@ class BranchingScheme:
             return self.id < other.id
         
         def next_child(self, instance):
-            print(self.idP)
-            print(self.next_child_pos)
             comparisonTime = 0 if self.next_child_pos==0 else instance.duration(self.idP, self.next_child_pos)+self.time 
             minTime = np.infty
             minInterval = None
             minId = None
 
             #finding the next child in ordered way not allowing to go to an already visited client
-            for ii in range(self.instance.locations):
+            for ii in range(1, len(instance.locations)+1):
                 travel = self.instance.duration(self.idP, ii)
                 if (travel+self.time<minTime and travel>comparisonTime and ii not in self.visited):
                     if travel+self.time <= self.instance.locations[ii].visit_intervals[0][0]:
@@ -149,7 +148,7 @@ class BranchingScheme:
         node = self.Node()
         node.father = None
         # TODO START
-        node.visited = None
+        node.visited = []
         node.time = 0
         node.cost = 0
         node.idP = 0
@@ -174,7 +173,7 @@ class BranchingScheme:
                     
         self.next_child_pos = minId
         self.next_child_interval = minInterval
-    
+            
         # TODO END
         node.guide = 0
         node.id = self.id
@@ -185,7 +184,7 @@ class BranchingScheme:
         # TODO START
         idNext = father.next_child_pos
         intervalNext = father.next_child_interval
-        if idNext is None:
+        if idNext is None or idNext==0:
             return None
         #update the father node
         father.next_child(self.instance)
@@ -195,7 +194,7 @@ class BranchingScheme:
         child.idP = idNext
         child.chosenInterval = intervalNext
         child.father = father
-        
+
         child.visited = father.visited.append(idNext)
         child.time = self.instance.locations[idNext].visit_intervals[intervalNext][1]
         child.cost = father.cost+self.instance.cost(father.idP,idNext)
@@ -210,7 +209,7 @@ class BranchingScheme:
 
     def infertile(self, node):
         # TODO START
-        return (node.next_child_pos is None)
+        return (node.next_child_pos is None or node.next_child_pos==0)
         pass
         # TODO END
 
