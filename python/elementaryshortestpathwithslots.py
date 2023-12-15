@@ -3,6 +3,7 @@ import math
 import treesearchsolverpy
 from functools import total_ordering
 import numpy as np
+import copy
 
 class Location:
     id = None
@@ -101,14 +102,15 @@ class BranchingScheme:
         id = None
         father = None
         # TODO START
-        visited = None #Save the number of visited node
+        visited = [] #Save the  visited node by the current node
+        path = [] #Save the node on the current path
         time = 0 #current time
         chosenInterval = None #Either 1 or 0 depending on which time we visited
         cost = None
         idP = None
         
         # TODO END
-        guide = None
+        guide = None 
         next_child_pos = 0
         next_child_interval = 0
 
@@ -122,18 +124,18 @@ class BranchingScheme:
             minTime = np.infty
             minInterval = None
             minId = None
-
+            
             #finding the next child in ordered way not allowing to go to an already visited client
-            for ii in range(1, len(instance.locations)+1):
-                travel = self.instance.duration(self.idP, ii)
-                if (travel+self.time<minTime and travel>comparisonTime and ii not in self.visited):
-                    if travel+self.time <= self.instance.locations[ii].visit_intervals[0][0]:
-                        minTime = self.instance.locations[ii].visit_intervals[0][1]
+            for ii in range(len(instance.locations)):
+                travel = instance.duration(self.idP, ii)
+                if (travel+self.time<minTime and travel>comparisonTime and ii not in self.path and ii not in self.visited):
+                    if travel+self.time <= instance.locations[ii].visit_intervals[0][0]:
+                        minTime = instance.locations[ii].visit_intervals[0][1]
                         minInterval = 0
                         minId = ii
                 
-                    if travel+self.time<=self.instance.locations[ii].visit_intervals[1][0]:
-                        minTime = self.instance.locations[ii].visit_intervals[1][1]
+                    if travel+self.time<=instance.locations[ii].visit_intervals[1][0]:
+                        minTime = instance.locations[ii].visit_intervals[1][1]
                         minInterval = 1
                         minId = ii
                 
@@ -149,6 +151,7 @@ class BranchingScheme:
         node.father = None
         # TODO START
         node.visited = []
+        node.path = [0]
         node.time = 0
         node.cost = 0
         node.idP = 0
@@ -158,15 +161,15 @@ class BranchingScheme:
         minInterval = None
         minId = None
 
-        for ii in range(1,len(self.instance.locations)+1):
+        for ii in range(len(self.instance.locations)):
             travel = self.instance.duration(0, ii)
-            if (travel+self.time<minTime):
-                if travel+self.time <= self.instance.locations[ii].visit_intervals[0][0]:
+            if (travel<minTime and ii not in node.visited):
+                if travel <= self.instance.locations[ii].visit_intervals[0][0]:
                     minTime = self.instance.locations[ii].visit_intervals[0][1]
                     minInterval = 0
                     minId = ii
             
-                if travel+self.time<=self.instance.locations[ii].visit_intervals[1][0]:
+                if travel<=self.instance.locations[ii].visit_intervals[1][0]:
                     minTime = self.instance.locations[ii].visit_intervals[1][1]
                     minInterval = 1
                     minId = ii
@@ -184,26 +187,36 @@ class BranchingScheme:
         # TODO START
         idNext = father.next_child_pos
         intervalNext = father.next_child_interval
-        if idNext is None or idNext==0:
+        print(idNext)
+        
+        if idNext in father.visited or idNext is None:
             return None
-        #update the father node
-        father.next_child(self.instance)
+        father.visited.append(idNext)
         
         #build the child node
         child = self.Node()
         child.idP = idNext
         child.chosenInterval = intervalNext
         child.father = father
+        child.visited = []
 
-        child.visited = father.visited.append(idNext)
+        child.path = copy.deepcopy(father.path)
+        child.path.append(idNext)
         child.time = self.instance.locations[idNext].visit_intervals[intervalNext][1]
         child.cost = father.cost+self.instance.cost(father.idP,idNext)
+        print(child.path)
+        print(child.cost)
         
         child.next_child(self.instance)
+        child.guide = child.cost
         
         child.id = self.id
         self.id +=1
+
+        #update the father node
+        father.next_child(self.instance)
         
+        return child
         pass
         # TODO END
 
@@ -215,16 +228,15 @@ class BranchingScheme:
 
     def leaf(self, node):
         # TODO START
-        return (len(node.visited) == len(self.instance.locations)) 
+        return (node.path[-1] is None or node.path[-1] == 0) 
         pass
         # TODO END
 
     def bound(self, node_1, node_2):
         # TODO START
-        if(node_2.idP !=0):
-            d2 = node_2.cost + self.instance.cost(node_2.idP, 0)
-        else:
+        if(node_2 is None or node_2.idP ==0):
             return False
+        d2 = node_2.cost + self.instance.cost(node_2.idP, 0)
         return node_1.cost >= d2
         pass
         # TODO END
@@ -236,7 +248,7 @@ class BranchingScheme:
         # Compute the objective value of node_1.
         d1 = node_1.cost + self.instance.cost(node_1.idP, 0)
         # Compute the objective value of node_2.
-        d2 = node_2.length + self.instance.distance(node_2.idP, 0)
+        d2 = node_2.cost + self.instance.cost(node_2.idP, 0)
         return d1 < d2
         pass
         # TODO END
@@ -246,7 +258,7 @@ class BranchingScheme:
         # Compute the objective value of node_1.
         d1 = node_1.cost + self.instance.cost(node_1.idP, 0)
         # Compute the objective value of node_2.
-        d2 = node_2.length + self.instance.distance(node_2.idP, 0)
+        d2 = node_2.cost + self.instance.cost(node_2.idP, 0)
         return d1 == d2
         pass
         # TODO END
@@ -266,7 +278,7 @@ class BranchingScheme:
 
         def __hash__(self):
             # TODO START
-            return hash((self.node.idP, self.node.visited))
+            return hash((self.node.idP, self.node.cost))
             pass
             # TODO END
 
@@ -296,7 +308,7 @@ class BranchingScheme:
         if(node.idP != 0):
             d = node.cost + self.instance.cost(node.idP, 0)
         else:
-            d = ""
+            d = node.cost
         return str(d)
 
         pass
