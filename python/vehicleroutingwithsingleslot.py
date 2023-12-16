@@ -4,7 +4,7 @@ from operator import attrgetter
 import columngenerationsolverpy
 
 INF = 100000000
-DEBUG = True
+DEBUG = False
 
 class Location:
     id = None
@@ -115,8 +115,9 @@ class PricingSolver:
                 continue
             listClient.append(instance.locations[i])
         nbClient = len(listClient)
-        print("-- To visit--")
-        print([v.id for v in listClient])
+        if DEBUG:
+            print("-- To visit--")
+            print([v.id for v in listClient])
         # TODO END
 
         # Solve subproblem instance.
@@ -136,39 +137,41 @@ class PricingSolver:
                 print(i.visit_interval)
     ################################################
 
-        min_path_values = [INF for _ in range (nbClient)]
+        min_path_values = [reducedcostIdToId(0, listClient[i].id, duals) for i in range (nbClient)]
         predecessor = [None for _ in range(nbClient)]
         visited_clients = [{} for _ in range(nbClient)]
         previous_visited_clients = [v for v in visited_clients]
         previous_values = [v for v in min_path_values]
 
-        min_path_values[0] = 0
-
-        print("--Dual values--")
-        print(duals)
+        if DEBUG:
+            print("--Dual values--")
+            print(duals)
 
         # computing minimal path from depot for all clients
         # if values doesn't change, finished. |V|-1 iteration at most
-        while(min_path_values != previous_values): 
+        while(True): 
             previous_values = [v for v in min_path_values]
+            previous_visited_clients = [v for v in visited_clients]
             for i in range(nbClient):
                 for j in range(nbClient):
-                    if feasible_and_improve(i, j, previous_values, min_path_values, previous_visited_clients, duals):
+                    if feasible_and_improve(listClient[i].id, listClient[j].id, previous_values, min_path_values, previous_visited_clients, duals):
                         predecessor[j] = i
                         min_path_values[j] =  previous_values[i] + reducedcostIdToId(listClient[i].id, listClient[j].id, duals)
-                        visited_clients[j] = {i}.union(previous_visited_clients[j])
-        
+                        visited_clients[j] = {i}.union(previous_visited_clients[i])
+            if min_path_values == previous_values:
+                break
         # then pick best cycle by adding the edge (u, depot) to the shortest path (depot, u)
-        best_path_end = min([(i, min_path_values[i] + reducedcostIdToId(listClient[i].id, 0, duals)) for i in range(1,nbClient)], key= lambda a : a[1])
+        best_path_end = min([(i, min_path_values[i] + reducedcostIdToId(listClient[i].id, 0, duals)) for i in range(nbClient)], key= lambda a : a[1])
+        current = best_path_end[0]
         res : list[Location] = []
-        current = i
-        while current != 0:
+        while current != None:
             res.append(listClient[current])
             current = predecessor[current]
         
         res.reverse()
-
-        print ([loc.id for loc in res])
+        if DEBUG:
+            print("--Column--")
+            print ([loc.id for loc in res])
         # TODO END
 
         # Retrieve column.
@@ -182,13 +185,14 @@ class PricingSolver:
         column.row_coefficients.append(1)
         for i in range(len(res)):
             v = res[i]
-            column.row_indices.append(v.id-1)
+            column.row_indices.append(v.id)
             column.row_coefficients.append(1)
             column.objective_coefficient += instance.duration(u.id, v.id)
             u = v
         column.objective_coefficient += instance.duration(v.id, depot.id)
-        print("--Column value")
-        print(column.objective_coefficient)
+        if DEBUG:
+            print("--Column value")
+            print(column.objective_coefficient)
         # TODO END
 
         return [column]
@@ -197,17 +201,17 @@ class PricingSolver:
 def reducedcostIdToId(ordered_id1, ordered_id2, duals):
     if ordered_id1 == 0 and ordered_id2 == 0:
         return 0
-    return instance.duration(instance.locations[ordered_id1].id, instance.locations[ordered_id2].id) - .5*(duals[ordered_id1-1] + duals[ordered_id2-1])
+    return instance.duration(ordered_id1, ordered_id2) - .5*(duals[ordered_id1] + duals[ordered_id2])
 
-def feasible_and_improve(i, j, old_values, new_values, visited, duals):
-    feasible = i != j and instance.locations[i].visit_interval[1] + instance.duration(i, j) <= instance.locations[j].visit_interval[0]
-    elementary = not j in visited[i]
-    improved = old_values[i] + reducedcostIdToId(i, j, duals) < new_values[j]
+def feasible_and_improve(i:int, j:int, old_values, new_values, visited, duals):
+    feasible = i != j and (instance.locations[i].visit_interval[1] + instance.duration(i, j) <= instance.locations[j].visit_interval[0])
+    elementary = not j in visited[i-1]
+    improved = old_values[i-1] + reducedcostIdToId(i, j, duals) < new_values[j-1]
     return feasible and elementary and improved
 
 def get_parameters(instance: Instance):
     # TODO START
-    number_of_constraints = len(instance.locations) - 1
+    number_of_constraints = len(instance.locations)
     p = columngenerationsolverpy.Parameters(number_of_constraints)
     p.objective_sense = "min"
 
@@ -215,7 +219,11 @@ def get_parameters(instance: Instance):
     p.column_lower_bound = 0
     p.column_upper_bound = 1
     # row bounds
-    for i in range(number_of_constraints):
+    p.row_lower_bounds[0] = 0
+    p.row_upper_bounds[0] = len(instance.locations) - 1
+    p.row_coefficient_lower_bounds[0] = 1
+    p.row_coefficient_upper_bounds[0] = 1
+    for i in range(1, number_of_constraints):
         p.row_lower_bounds[i] = 1
         p.row_upper_bounds[i] = 1
         p.row_coefficient_lower_bounds[i] = 0
@@ -225,7 +233,7 @@ def get_parameters(instance: Instance):
     for i in range (len(instance.locations)):
         for j in range (len(instance.locations)):
             values.append(instance.duration(i, j))
-    p.dummy_column_objective_coefficient = 2*max(values)
+    p.dummy_column_objective_coefficient = 3*max(values)
     print(" Coeff dummy = ", p.dummy_column_objective_coefficient)
     # TODO END
     # Pricing solver.
