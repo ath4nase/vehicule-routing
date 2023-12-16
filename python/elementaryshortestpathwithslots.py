@@ -102,17 +102,17 @@ class BranchingScheme:
         id = None
         father = None
         # TODO START
-        visited = [] #Save the  visited node by the current node
+        visited = [] #Save the nodes visited by the current node
         path = [] #Save the node on the current path
         time = 0 #current time
-        chosenInterval = None #Either 1 or 0 depending on which time we visited
+        next_child_pos = None 
+        next_child_interval = 0 #Either 1 or 0 depending on which time we visited
         cost = None
         idP = None
         
         # TODO END
         guide = None 
-        next_child_pos = 0
-        next_child_interval = 0
+        
 
         def __lt__(self, other):
             if self.guide != other.guide:
@@ -120,28 +120,56 @@ class BranchingScheme:
             return self.id < other.id
         
         def next_child(self, instance):
-            comparisonTime = 0 if self.next_child_pos==0 else instance.duration(self.idP, self.next_child_pos)+self.time 
+            comparisonTime = 0 #instance.locations[self.next_child_pos].visit_intervals[self.next_child_interval][1] 
             minTime = np.infty
-            minInterval = None
+            minInterval = 0
             minId = None
             
-            #finding the next child in ordered way not allowing to go to an already visited client
+            #print(self.visited)
+            #print(self.path)
+            #print("cp time: "+str(comparisonTime))
+            #print("next: "+str(self.next_child_pos))
+            
+            #finding the next child in ordered way not allowing to go to an already visited client and interval for this node or for the path
             for ii in range(len(instance.locations)):
-                travel = instance.duration(self.idP, ii)
-                if (travel+self.time<minTime and travel>comparisonTime and ii not in self.path and ii not in self.visited):
-                    if travel+self.time <= instance.locations[ii].visit_intervals[0][0]:
-                        minTime = instance.locations[ii].visit_intervals[0][0]
-                        minInterval = 0
-                        minId = ii
-                
-                if (travel+self.time<minTime and travel>comparisonTime and ii not in self.path and ii+len(instance.locations) not in self.visited):
-                    if travel+self.time<=instance.locations[ii].visit_intervals[1][0]:
-                        minTime = instance.locations[ii].visit_intervals[1][0]
-                        minInterval = 1
-                        minId = ii
-                
+                #print(ii)
+                #if site ii first slot not visited yet
+                if ((ii not in self.path) and (ii not in self.visited) and ii+len(instance.locations) not in self.visited):
+                    #print("0: "+str(ii))
+                    travel = instance.duration(self.idP, ii)+self.time
+                    #if it can be visited in time
+                    if (travel <= instance.locations[ii].visit_intervals[0][0]):
+                        #print("pan")
+                        temp = instance.locations[ii].visit_intervals[0][1]
+                        #find the next visit that will finish the earliest
+                        if(temp>comparisonTime and temp<minTime):
+                            minTime = temp
+                            minInterval = 0
+                            minId = ii
+                            
+                            #print(temp)
+                            #print(str(ii)+"  "+str(0)+"  "+str(minId))
+                            
+                #if site ii 2nd slot not visited yet
+                if (ii not in self.path and ii+len(instance.locations) not in self.visited and ii not in self.visited):
+                    #print("1: "+str(ii))
+                    travel = instance.duration(self.idP, ii)+self.time
+                    #if it can be visited in time
+                    if (travel <= instance.locations[ii].visit_intervals[1][0]):
+                        temp = instance.locations[ii].visit_intervals[1][1]
+                        #find the next visit that will finish the earliest
+                        if(temp>comparisonTime and temp<minTime):
+                            minTime = temp
+                            minInterval = 0
+                            minId = ii
+                            #print(temp)
+                            #print(str(ii)+"  "+str(1)+"  "+str(minId))
+                #print("minId: "+str(minId))
+            
             self.next_child_pos = minId
             self.next_child_interval = minInterval
+            #print("next pos: "+str(self.next_child_pos))
+            #print(self.cost)
 
     def __init__(self, instance):
         self.instance = instance
@@ -151,34 +179,36 @@ class BranchingScheme:
         node = self.Node()
         node.father = None
         # TODO START
-        node.visited = []
-        node.path = []
+        node.visited = [0]
+        node.path = [0]
         node.time = 0
         node.cost = 0
         node.idP = 0
+        node.guide = None
         
-        #finding the first closest child
+        #finding the first closest child   ==> should be transformed to try by smallest cost first
         minTime = np.infty
-        minInterval = None
+        minInterval = 0
         minId = None
 
         for ii in range(len(self.instance.locations)):
             travel = self.instance.duration(0, ii)
-            if (travel<minTime and ii not in node.visited):
-                if travel <= self.instance.locations[ii].visit_intervals[0][0]:
-                    minTime = self.instance.locations[ii].visit_intervals[0][0]
+            
+            if (self.instance.locations[ii].visit_intervals[0][1]<minTime and ii not in node.visited):
+                if (travel <= self.instance.locations[ii].visit_intervals[0][0]):
+                    minTime = self.instance.locations[ii].visit_intervals[0][1]
                     minInterval = 0
                     minId = ii
             
-            if (travel<minTime and ii+len(self.instance.locations) not in node.visited):
-                if travel<=self.instance.locations[ii].visit_intervals[1][0]:
-                    minTime = self.instance.locations[ii].visit_intervals[1][0]
+            if (self.instance.locations[ii].visit_intervals[1][1]<minTime and ii+len(self.instance.locations) not in node.visited):
+                if (travel<=self.instance.locations[ii].visit_intervals[1][0]):
+                    minTime = self.instance.locations[ii].visit_intervals[1][1]
                     minInterval = 1
                     minId = ii
                     
-        self.next_child_pos = minId
-        self.next_child_interval = minInterval
-            
+        node.next_child_pos = minId
+        node.next_child_interval = minInterval
+                
         # TODO END
         node.guide = 0
         node.id = self.id
@@ -189,13 +219,18 @@ class BranchingScheme:
         # TODO START
         idNext = father.next_child_pos
         intervalNext = father.next_child_interval
-        print(idNext)
         
-        if idNext in father.path or idNext is None or idNext in father.visited:
-            father.visited.append(idNext+intervalNext*len(self.instance.locations)) #interval is stocked in it
+        temp = idNext+intervalNext*len(self.instance.locations)
+        #print(temp)
+        if temp in father.path or idNext is None or temp in father.visited: #normally idNext == 1 should be sufficient
+            if (temp not in father.visited):
+                father.visited.append(temp) #interval is stocked in it
+            #update the father node
+            father.next_child(self.instance)
             return None
         
-        father.visited.append(idNext+intervalNext*len(self.instance.locations)) #interval is stocked in it
+        father.visited.append(temp) #interval is stocked in it
+        father.next_child(self.instance)
         
         #build the child node
         child = self.Node()
@@ -208,37 +243,38 @@ class BranchingScheme:
         child.path.append(idNext)
         child.time = self.instance.locations[idNext].visit_intervals[intervalNext][1]
         child.cost = father.cost+self.instance.cost(father.idP,idNext)
+        
         print(child.path)
         print(child.cost + self.instance.cost(idNext,0))
+        print(child.time)
         
         child.next_child(self.instance)
         child.guide = child.cost
         
+        #print(child.next_child_pos)
         child.id = self.id
-        self.id +=1
+        self.id += 1
 
-        #update the father node
-        father.next_child(self.instance)
-        
         return child
         pass
         # TODO END
 
     def infertile(self, node):
         # TODO START
-        return (node.next_child_pos is None)
+        #print("pan")
+        return (node.next_child_pos is None) #might need to change every return None to None as None is used in the lib
         pass
         # TODO END
 
     def leaf(self, node):
         # TODO START
-        return (node.idP == 0) 
+        return (node.idP == 0)
         pass
         # TODO END
 
     def bound(self, node_1, node_2):
         # TODO START
-        if(node_2.idP != 0):
+        if(node_2.idP != 0 or node_2.idP is None):
             return False
         d2 = node_2.cost + self.instance.cost(node_2.idP, 0)
         return node_1.cost >= d2
@@ -249,9 +285,9 @@ class BranchingScheme:
 
     def better(self, node_1, node_2):
         # TODO START
-        if(node_1.idP != 0):
+        if(node_1.idP != 0 or node_1.idP is None):
             return False
-        if(node_2.idP != 0):
+        if(node_2.idP != 0 or node_2.idP  is None):
             return True
         # Compute the objective value of node_1.
         d1 = node_1.cost + self.instance.cost(node_1.idP, 0)
@@ -263,15 +299,16 @@ class BranchingScheme:
 
     def equals(self, node_1, node_2):
         # TODO START
-        if(node_1.idP != 0):
+        """if(node_1.idP != 0 or node_1.idP is None):
             return False
-        if(node_2.idP != 0):
+        if(node_2.idP != 0 or node_2.idP is None):
             return False
         # Compute the objective value of node_1.
         d1 = node_1.cost + self.instance.cost(node_1.idP, 0)
         # Compute the objective value of node_2.
         d2 = node_2.cost + self.instance.cost(node_2.idP, 0)
-        return d1 == d2
+        return d1 == d2"""
+        return False
         pass
         # TODO END
 
@@ -279,7 +316,7 @@ class BranchingScheme:
 
     def comparable(self, node):
         # TODO START
-        return False #(node.idP==0)
+        return (node.idP==0 and self.node.idP==0)
         pass
         # TODO END
 
@@ -296,11 +333,7 @@ class BranchingScheme:
 
         def __eq__(self, other):
             # TODO START
-            return (
-                    # Same last location.
-                    self.node.idP == other.node.idP
-                    # Same visited locations.
-                    and self.node.visited == other.node.visited)
+            return (self.node.idP == other.node.idP and self.node.visited == other.node.visited)
             pass
             # TODO END
 
@@ -322,7 +355,6 @@ class BranchingScheme:
         else:
             d = node.cost
         return str(d)
-
         pass
         # TODO END
 
