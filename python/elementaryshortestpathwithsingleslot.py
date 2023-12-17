@@ -108,9 +108,45 @@ class Instance:
 
 def dynamic_programming(instance:Instance):
     depot = Location.depot()
+    listClient = [v for v in instance.locations][1:]
+    nbClient = len(listClient)
     # TODO START
-    # TODO END
+    min_path_values = [instance.cost(0, listClient[i].id) for i in range (nbClient)]
+    predecessor = [None for _ in range(nbClient)]
+    visited_clients = [{} for _ in range(nbClient)]
+    previous_visited_clients = [v for v in visited_clients]
+    previous_values = [v for v in min_path_values]
 
+    # computing minimal path from depot for all clients
+    # if values doesn't change, finished. |V|-1 iteration at most
+    while(True): 
+        previous_values = [v for v in min_path_values]
+        previous_visited_clients = [v for v in visited_clients]
+        for i in range(nbClient):
+            for j in range(nbClient):
+                if feasible_and_improve(listClient[i].id, listClient[j].id, previous_values, min_path_values, previous_visited_clients):
+                    predecessor[j] = i
+                    min_path_values[j] =  previous_values[i] + instance.cost(listClient[i].id, listClient[j].id)
+                    visited_clients[j] = {i}.union(previous_visited_clients[i])
+        if min_path_values == previous_values:
+            break
+    # then pick best cycle by adding the edge (u, depot) to the shortest path (depot, u)
+    best_path_end = min([(i, min_path_values[i] + instance.cost(listClient[i].id, 0)) for i in range(nbClient)], key= lambda a : a[1])
+    current = best_path_end[0]
+    res : list[Location] = []
+    while current != None:
+        res.append(listClient[current].id)
+        current = predecessor[current]
+    
+    res.reverse()
+    # TODO END
+    return res
+
+def feasible_and_improve(i, j, old_values, new_values, visited):
+    feasible = i != j and (i == 0 or instance.locations[i].visit_interval[1] + instance.duration(i, j) <= instance.locations[j].visit_interval[0])
+    elementary = not j in visited[i-1]
+    improved = old_values[i-1] + instance.cost(i, j) < new_values[j-1]
+    return feasible and elementary and improved
 
 if __name__ == "__main__":
     import argparse
