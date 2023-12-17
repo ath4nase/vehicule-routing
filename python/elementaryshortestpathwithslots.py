@@ -220,9 +220,13 @@ class BranchingScheme:
         idNext = father.next_child_pos
         intervalNext = father.next_child_interval
         
+        if(idNext is None):
+            father.next_child(self.instance)
+            return None
+        
         temp = idNext+intervalNext*len(self.instance.locations)
         #print(temp)
-        if temp in father.path or idNext is None or temp in father.visited: #normally idNext == 1 should be sufficient
+        if temp in father.path or temp in father.visited: #normally idNext == 1 should be sufficient
             if (temp not in father.visited):
                 father.visited.append(temp) #interval is stocked in it
             #update the father node
@@ -245,7 +249,7 @@ class BranchingScheme:
         child.cost = father.cost+self.instance.cost(father.idP,idNext)
         
         print(child.path)
-        print(child.cost + self.instance.cost(idNext,0))
+        print(child.cost)# + self.instance.cost(idNext,0))
         print(child.time)
         
         child.next_child(self.instance)
