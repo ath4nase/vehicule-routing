@@ -176,6 +176,7 @@ class PricingSolver:
 
         # Retrieve column.
         column = columngenerationsolverpy.Column()
+        column.extra = [v for v in res]
         # TODO START
         column.objective_coefficient = 0
         if res == []:
@@ -244,10 +245,8 @@ def get_parameters(instance: Instance):
 def to_solution(columns, fixed_columns):
     solution = []
     for column, value in fixed_columns:
-        s = []
-        for index, coef in zip(column.row_indices, column.row_coefficients):
-            s += [index] * coef
-        solution.append((value, s))
+        tour = [v.id for v in columns[column].extra]
+        solution.append(tour)
     return solution
 
 
@@ -275,9 +274,6 @@ if __name__ == "__main__":
         instance = Instance(args.instance)
         instance.check(args.certificate)
 
-    elif args.algorithm == "column_generation":
-        instance = Instance(args.instance)
-        output = columngenerationsolverpy.column_generation(get_parameters(instance))
 
     else:
         instance = Instance(args.instance)
@@ -285,6 +281,8 @@ if __name__ == "__main__":
         if args.algorithm == "greedy":
             output = columngenerationsolverpy.greedy(
                     parameters)
+        elif args.algorithm == "column_generation":
+            output = columngenerationsolverpy.column_generation(parameters)
         elif args.algorithm == "limited_discrepancy_search":
             output = columngenerationsolverpy.limited_discrepancy_search(
                     parameters)
