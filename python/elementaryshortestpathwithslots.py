@@ -274,7 +274,7 @@ class BranchingScheme:
 
     def bound(self, node_1, node_2):
         # TODO START
-        if(node_2.idP != 0 or node_2.idP is None):
+        if(node_2.idP == 0):
             return False
         d2 = node_2.cost + self.instance.cost(node_2.idP, 0)
         return node_1.cost >= d2
@@ -285,9 +285,9 @@ class BranchingScheme:
 
     def better(self, node_1, node_2):
         # TODO START
-        if(node_1.idP != 0 or node_1.idP is None):
+        if(node_1.idP == 0):
             return False
-        if(node_2.idP != 0 or node_2.idP  is None):
+        if(node_2.idP == 0):
             return True
         # Compute the objective value of node_1.
         d1 = node_1.cost + self.instance.cost(node_1.idP, 0)
