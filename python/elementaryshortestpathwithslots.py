@@ -100,8 +100,10 @@ class BranchingScheme:
 
         id = None
         father = None
-        # TODO START
-        # TODO END
+        visited = None
+        previous = None
+        path = None
+        cost = None
         guide = None
         next_child_pos = 0
 
@@ -115,17 +117,20 @@ class BranchingScheme:
         self.id = 0
 
     def root(self):
+        # The root contains the depot
         node = self.Node()
         node.father = None
-        # TODO START
-        # TODO END
+        node.visited = [self.id]
+        node.previous = 0
+        node.path = []
+        node.cost = 0
         node.guide = 0
         node.id = self.id
         self.id += 1
         return node
 
     def next_child(self, father):
-        # TODO START
+         
         pass
         # TODO END
 

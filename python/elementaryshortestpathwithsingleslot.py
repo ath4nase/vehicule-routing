@@ -4,7 +4,8 @@ from operator import attrgetter
 from re import DEBUG
 import numpy as np
 
-DEBUG = False 
+DEBUG = True
+INF = 9999999
 
 
 class Location:
@@ -13,6 +14,10 @@ class Location:
     x = 0
     y = 0
     value = 0
+
+    def depot():
+        depot = Location()
+        depot.visit_interval = [-INF, INF]
 
 
 class Instance:
@@ -93,95 +98,46 @@ class Instance:
 
 
 def dynamic_programming(instance):
+    depot = Location.depot()
+    listClient = [v for v in instance.locations][1:]
+    nbClient = len(listClient)
+    min_path_values = [instance.cost(0, listClient[i].id)
+                       for i in range(nbClient)]
+    predecessor = [None for _ in range(nbClient)]
+    visited_clients = [{} for _ in range(nbClient)]
+    previous_visited_clients = [v for v in visited_clients]
+    previous_values = [v for v in min_path_values]
+    while (True):
+        previous_values = [v for v in min_path_values]
+        previous_visited_clients = [v for v in visited_clients]
+        for i in range(nbClient):
+            for j in range(nbClient):
+                if feasible_and_improve(listClient[i].id, listClient[j].id, previous_values, min_path_values, previous_visited_clients):
+                    predecessor[j] = i
+                    min_path_values[j] = previous_values[i] + \
+                        instance.cost(listClient[i].id, listClient[j].id)
+                    visited_clients[j] = {i}.union(previous_visited_clients[i])
+        if min_path_values == previous_values:
+            break
+    best_path_end = min([(i, min_path_values[i] + instance.cost(listClient[i].id, 0))
+                        for i in range(nbClient)], key=lambda a: a[1])
+    current = best_path_end[0]
+    res: list[Location] = []
+    while current != None:
+        res.append(listClient[current].id)
+        current = predecessor[current]
 
-    if instance.locations == []:
-        return []
-    depot = instance.locations[0]
-    depot.visit_interval = [0, 0]
-    listClient = instance.locations
-    nbClient = len(instance.locations)
-    orderedLocation = sorted(
-        listClient, key=attrgetter('visit_interval'))
-################################################
-    if DEBUG:
-        for i in range(len(listClient)):
-            for j in range(len(listClient)):
-                if i != j:
-                    print(instance.cost(i, j), end=" ")
-                else:
-                    print(0, end=" ")
-            print("")
-        print("----------------------")
-        for i in range(len(listClient)):
-            for j in range(len(listClient)):
-                if i != j:
-                    print(instance.duration(i, j), end=" ")
-                else:
-                    print(0, end=" ")
-            print("")
-
-        print("--Loc--")
-        for i in instance.locations:
-            print(i.visit_interval)
-        print("--SortedLoc--")
-        for i in orderedLocation:
-            print(i.visit_interval)
-################################################
-
-    c = np.zeros((nbClient, nbClient), dtype=object)
-    for k in range(nbClient):
-        for l in range(nbClient):
-            if l == 0 or k == 0:
-                c[k][l] = (0, [])
-            else:
-                temp = []
-                for kp in range(0, k):
-                    for lp in range(0, kp+1):
-                        path = c[kp][lp][1].copy()
-                        if lp == l:
-                            cost = c[kp][lp][0]
-                        else:
-                            cost = c[kp][lp][0]+costIdToId(lp, l, orderedLocation) + costToDepot(
-                                l, orderedLocation)-costToDepot(lp, orderedLocation)
-                        if path == []:
-                            path.append(orderedLocation[l].id)
-                        if path[-1] != orderedLocation[l].id:
-                            path.append(orderedLocation[l].id)
-                        if instance.duration(orderedLocation[lp].id, orderedLocation[l].id)+instance.locations[orderedLocation[lp].id].visit_interval[1] < instance.locations[orderedLocation[l].id].visit_interval[0]:
-                            temp.append((cost, path))
-                        else:
-                            temp.append((0, []))
-                # print("k = ", k, " l = ", l, " temp", temp)
-                c[k][l] = (min(temp, key=lambda a: a[0]))
-    if DEBUG:
-        print("-------------------------------------")
-        print(c)
-    res = min(c[-1], key= lambda a: a[0])[1] 
+    res.reverse()
     print(res)
-    return res 
+    return res
 
 
-def costIdToId(ordered_id1, ordered_id2, orderedLocation):
-    if ordered_id1 == 0 and ordered_id2 == 0:
-        return 0
-    return instance.cost(orderedLocation[ordered_id1].id, orderedLocation[ordered_id2].id)
-
-
-def costToDepot(ordered_id1, orderedLocation):
-    if ordered_id1 == 0:
-        return 0
-    return instance.cost(orderedLocation[ordered_id1].id, 0)
-
-
-# give the total cost of a given path in the graph
-def path_cost(id_list, instance):
-    if len(id_list) == 0:
-        return 0
-    total_cost = instance.cost(0, id_list[0])
-    for i in range(len(id_list)-1):
-        total_cost += instance.cost(id_list[i], id_list[i+1])
-    total_cost += instance.cost(id_list[-1], 0)
-    return total_cost
+def feasible_and_improve(i, j, old_values, new_values, visited):
+    feasible = i != j and (i == 0 or instance.locations[i].visit_interval[1] + instance.duration(
+        i, j) <= instance.locations[j].visit_interval[0])
+    elementary = not j in visited[i-1]
+    improved = old_values[i-1] + instance.cost(i, j) < new_values[j-1]
+    return feasible and elementary and improved
 
 
 if __name__ == "__main__":
