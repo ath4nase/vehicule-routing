@@ -57,22 +57,29 @@ class Instance:
             # Compute total_distance.
             total_travelled_distance = 0
             on_time = True
-            for locations in data["locations"]:
-                current_time = -math.inf
-                location_pred_id = 0
-                for location_id in locations:
-                    location = self.locations[location_id]
-                    d = self.duration(location_pred_id, location_id)
-                    total_travelled_distance += d
-                    t = current_time + d
-                    if t <= location.visit_interval[0]:
-                        current_time = location.visit_interval[1]
-                    else:
-                        on_time = False
-                    location_pred_id = location_id
-                total_travelled_distance += self.duration(location_pred_id, 0)
-            # Compute number_of_locations.
-            number_of_duplicates = len(locations) - len(set(locations))
+            if (data["locations"] != []):
+                for locations in data["locations"]:
+                    current_time = -math.inf
+                    location_pred_id = 0
+                    for location_id in locations:
+                        location = self.locations[location_id]
+                        d = self.duration(location_pred_id, location_id)
+                        total_travelled_distance += d
+                        t = current_time + d
+                        if t <= location.visit_interval[0]:
+                            current_time = location.visit_interval[1]
+                        else:
+                            on_time = False
+                        location_pred_id = location_id
+                    total_travelled_distance += self.duration(location_pred_id, 0)
+                # Compute number_of_locations.
+                number_of_duplicates = len(locations) - len(set(locations))
+            else :
+                locations = []
+                number_of_duplicates = 0
+                on_time = True
+                total_travelled_distance = 0
+
 
             is_feasible = (
                     (number_of_duplicates == 0)
@@ -115,6 +122,8 @@ class PricingSolver:
                 continue
             listClient.append(instance.locations[i])
         nbClient = len(listClient)
+        if (nbClient == 0):
+            return []
         if DEBUG:
             print("-- To visit--")
             print([v.id for v in listClient])
@@ -127,7 +136,7 @@ class PricingSolver:
             for i in range(len(listClient)):
                 for j in range(len(listClient)):
                     if i != j:
-                        print(reducedcostIdToId(i, j, duals), end=" ")
+                        print(reducedcostIdToId(i, j, listClient, duals), end=" ")
                     else:
                         print(0, end=" ")
                 print("")
@@ -137,7 +146,7 @@ class PricingSolver:
                 print(i.visit_interval)
     ################################################
 
-        min_path_values = [reducedcostIdToId(0, listClient[i].id, duals) for i in range (nbClient)]
+        min_path_values = [reducedcostIdToId(-1, i, listClient, duals) for i in range (nbClient)]
         predecessor = [None for _ in range(nbClient)]
         visited_clients = [{} for _ in range(nbClient)]
         previous_visited_clients = [v for v in visited_clients]
@@ -154,14 +163,14 @@ class PricingSolver:
             previous_visited_clients = [v for v in visited_clients]
             for i in range(nbClient):
                 for j in range(nbClient):
-                    if feasible_and_improve(listClient[i].id, listClient[j].id, previous_values, min_path_values, previous_visited_clients, duals):
+                    if feasible_and_improve(i, j, listClient, previous_values, min_path_values, previous_visited_clients, duals):
                         predecessor[j] = i
-                        min_path_values[j] =  previous_values[i] + reducedcostIdToId(listClient[i].id, listClient[j].id, duals)
+                        min_path_values[j] =  previous_values[i] + reducedcostIdToId(i, j, listClient, duals)
                         visited_clients[j] = {i}.union(previous_visited_clients[i])
             if min_path_values == previous_values:
                 break
         # then pick best cycle by adding the edge (u, depot) to the shortest path (depot, u)
-        best_path_end = min([(i, min_path_values[i] + reducedcostIdToId(listClient[i].id, 0, duals)) for i in range(nbClient)], key= lambda a : a[1])
+        best_path_end = min([(i, min_path_values[i] + reducedcostIdToId(i, -1, listClient, duals)) for i in range(nbClient)], key= lambda a : a[1])
         current = best_path_end[0]
         res : list[Location] = []
         while current != None:
@@ -199,15 +208,22 @@ class PricingSolver:
         return [column]
 
 
-def reducedcostIdToId(ordered_id1, ordered_id2, duals):
-    if ordered_id1 == 0 and ordered_id2 == 0:
+def reducedcostIdToId(i, j, listClient, duals):
+    id_i = listClient[i].id
+    id_j = listClient[j].id
+    if i == -1:
+        id_i = 0
+    if j == -1:
+        id_j = 0
+    
+    if id_i == 0 and id_j == 0:
         return 0
-    return instance.duration(ordered_id1, ordered_id2) - .5*(duals[ordered_id1] + duals[ordered_id2])
+    return instance.duration(id_i, id_j) - .5*(duals[i+1] + duals[j+1])
 
-def feasible_and_improve(i:int, j:int, old_values, new_values, visited, duals):
-    feasible = i != j and (instance.locations[i].visit_interval[1] + instance.duration(i, j) <= instance.locations[j].visit_interval[0])
-    elementary = not j in visited[i-1]
-    improved = old_values[i-1] + reducedcostIdToId(i, j, duals) < new_values[j-1]
+def feasible_and_improve(i:int, j:int, listClient, old_values, new_values, visited, duals):
+    feasible = i != j and (listClient[i].visit_interval[1] + instance.duration(listClient[i].id, listClient[j].id) <= listClient[j].visit_interval[0])
+    elementary = not j in visited[i]
+    improved = old_values[i] + reducedcostIdToId(i, j, listClient, duals) < new_values[j]
     return feasible and elementary and improved
 
 def get_parameters(instance: Instance):
@@ -215,27 +231,25 @@ def get_parameters(instance: Instance):
     number_of_constraints = len(instance.locations)
     p = columngenerationsolverpy.Parameters(number_of_constraints)
     p.objective_sense = "min"
-
-    # column bounds
-    p.column_lower_bound = 0
-    p.column_upper_bound = 1
-    # row bounds
-    p.row_lower_bounds[0] = 0
-    p.row_upper_bounds[0] = len(instance.locations) - 1
-    p.row_coefficient_lower_bounds[0] = 1
-    p.row_coefficient_upper_bounds[0] = 1
-    for i in range(1, number_of_constraints):
-        p.row_lower_bounds[i] = 1
-        p.row_upper_bounds[i] = 1
-        p.row_coefficient_lower_bounds[i] = 0
-        p.row_coefficient_upper_bounds[i] = 1
-    
-    values = []
-    for i in range (len(instance.locations)):
-        for j in range (len(instance.locations)):
-            values.append(instance.duration(i, j))
-    p.dummy_column_objective_coefficient = 3*max(values)
-    print(" Coeff dummy = ", p.dummy_column_objective_coefficient)
+    if number_of_constraints != 0:
+        # column bounds
+        p.column_lower_bound = 0
+        p.column_upper_bound = 1
+        # row bounds
+        p.row_lower_bounds[0] = 0
+        p.row_upper_bounds[0] = len(instance.locations) - 1
+        p.row_coefficient_lower_bounds[0] = 1
+        p.row_coefficient_upper_bounds[0] = 1
+        for i in range(1, number_of_constraints):
+            p.row_lower_bounds[i] = 1
+            p.row_upper_bounds[i] = 1
+            p.row_coefficient_lower_bounds[i] = 0
+            p.row_coefficient_upper_bounds[i] = 1
+        values = []
+        for i in range (len(instance.locations)):
+            for j in range (len(instance.locations)):
+                values.append(instance.duration(i, j))
+        p.dummy_column_objective_coefficient = 3*max(values)
     # TODO END
     # Pricing solver.
     p.pricing_solver = PricingSolver(instance)
@@ -245,7 +259,7 @@ def get_parameters(instance: Instance):
 def to_solution(columns, fixed_columns):
     solution = []
     for column, value in fixed_columns:
-        tour = [v.id for v in columns[column].extra]
+        tour = [v.id for v in column.extra]
         solution.append(tour)
     return solution
 
@@ -274,19 +288,24 @@ if __name__ == "__main__":
         instance = Instance(args.instance)
         instance.check(args.certificate)
 
+    elif args.algorithm == "column_generation":
+        instance = Instance(args.instance)
+        output = columngenerationsolverpy.column_generation(
+                get_parameters(instance))
 
     else:
         instance = Instance(args.instance)
         parameters = get_parameters(instance)
-        if args.algorithm == "greedy":
-            output = columngenerationsolverpy.greedy(
-                    parameters)
-        elif args.algorithm == "column_generation":
-            output = columngenerationsolverpy.column_generation(parameters)
-        elif args.algorithm == "limited_discrepancy_search":
-            output = columngenerationsolverpy.limited_discrepancy_search(
-                    parameters)
-        solution = to_solution(parameters.columns, output["solution"])
+        if len(instance.locations) >1:
+            if args.algorithm == "greedy":
+                output = columngenerationsolverpy.greedy(
+                        parameters)
+            elif args.algorithm == "limited_discrepancy_search":
+                output = columngenerationsolverpy.limited_discrepancy_search(
+                        parameters)
+            solution = to_solution(parameters.columns, output["solution"])
+        else :
+            solution =[]
         if args.certificate is not None:
             data = {"locations": solution}
             with open(args.certificate, 'w') as json_file:

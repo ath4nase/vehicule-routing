@@ -78,17 +78,20 @@ class Instance:
             total_cost = 0
             current_time = -math.inf
             location_pred_id = 0
-            for location_id in data["locations"]:
-                location = self.locations[location_id]
-                t = current_time + self.duration(location_pred_id, location_id)
-                if t <= location.visit_interval[0]:
-                    current_time = location.visit_interval[1]
-                else:
-                    on_time = False
-                total_cost += self.cost(location_pred_id, location_id)
-                location_pred_id = location_id
-            total_cost += self.cost(location_pred_id, 0)
-            number_of_duplicates = len(locations) - len(set(locations))
+            if (len(locations) > 0):
+                for location_id in data["locations"]:
+                    location = self.locations[location_id]
+                    t = current_time + self.duration(location_pred_id, location_id)
+                    if t <= location.visit_interval[0]:
+                        current_time = location.visit_interval[1]
+                    else:
+                        on_time = False
+                    total_cost += self.cost(location_pred_id, location_id)
+                    location_pred_id = location_id
+                total_cost += self.cost(location_pred_id, 0)
+                number_of_duplicates = len(locations) - len(set(locations))
+            else :
+                number_of_duplicates = 0
             is_feasible = (
                     (number_of_duplicates == 0)
                     and (on_time)
@@ -130,6 +133,8 @@ def dynamic_programming(instance:Instance):
                     visited_clients[j] = {i}.union(previous_visited_clients[i])
         if min_path_values == previous_values:
             break
+    if (nbClient == 0):
+        return []
     # then pick best cycle by adding the edge (u, depot) to the shortest path (depot, u)
     best_path_end = min([(i, min_path_values[i] + instance.cost(listClient[i].id, 0)) for i in range(nbClient)], key= lambda a : a[1])
     current = best_path_end[0]
@@ -170,7 +175,9 @@ if __name__ == "__main__":
 
     if args.algorithm == "dynamic_programming":
         instance = Instance(args.instance)
-        solution = dynamic_programming(instance)
+        solution = []
+        if (len(instance.locations)>1):
+            solution = dynamic_programming(instance)
         if args.certificate is not None:
             data = {"locations": solution}
             with open(args.certificate, 'w') as json_file:
