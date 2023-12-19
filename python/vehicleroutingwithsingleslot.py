@@ -102,14 +102,14 @@ class PricingSolver:
         # TODO END
 
     def initialize_pricing(self, columns, fixed_columns):
-        print("Coucou")
         # TODO START
-        self.already_visited = [0 for _ in range(len(instance.locations))]
-        self.already_visited[0] = 1
+        self.already_visited = [False for _ in range(len(instance.locations))]
+        self.already_visited[0] = True
         for column_id, column_value in fixed_columns:
             column = columns[column_id]
             for row_index, row_coefficient in zip(column.row_indices, column.row_coefficients):
-                self.already_visited[row_index] += column_value*row_coefficient
+                if row_coefficient == 1:
+                    self.already_visited[row_index] = True
         # TODO END
 
     def solve_pricing(self, duals):
@@ -119,7 +119,7 @@ class PricingSolver:
         #depot.visit_interval = [0, 0]
         listClient : list[Location]= [depot]
         for i in range(len(instance.locations)):
-            if (self.already_visited[i] != 0):
+            if (self.already_visited[i]):
                 continue
             listClient.append(instance.locations[i])
         pricing_instance = elp.Instance()
@@ -131,13 +131,12 @@ class PricingSolver:
         # Solve subproblem instance.
         # TODO START
         res = elp.dynamic_programming(pricing_instance)
-        print(res)
         # TODO END
 
         # Retrieve column.
         column = columngenerationsolverpy.Column()
         # TODO START
-        column.extra = [v for v in res]
+        column.extra = [listClient[v].id for v in res]
         column.objective_coefficient = 0
         if res == []:
             column.row_indices.append(0)
@@ -147,16 +146,12 @@ class PricingSolver:
         column.row_indices.append(u)
         column.row_coefficients.append(1)
         for i in range(len(res)):
-            v = res[i]
+            v = column.extra[i]
             column.row_indices.append(v)
             column.row_coefficients.append(1)
             column.objective_coefficient += instance.duration(u, v)
             u = v
         column.objective_coefficient += instance.duration(v, depot.id)
-        if DEBUG:
-            print("--Column value")
-            print(column.objective_coefficient)
-        # TODO END
 
         return [column]
 

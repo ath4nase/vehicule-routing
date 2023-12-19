@@ -184,8 +184,6 @@ class BranchingScheme:
             return False
         if node_2.last.id != 0:
             return False
-        # print(node_1.path, " -> ", node_1.cost)
-        # print(node_2.path, " -> ", node_2.cost)
         return node_1.cost < node_2.cost
         # TODO END
 
@@ -197,8 +195,6 @@ class BranchingScheme:
             return False
         if node_2.last.id != 0:
             return False
-        # print(node_1.path, " -> ", node_1.cost)
-        # print(node_2.path, " -> ", node_2.cost)
         return node_1.cost < node_2.cost
         # TODO END
 
@@ -305,11 +301,6 @@ if __name__ == "__main__":
     else:
         instance = Instance(args.instance)
         branching_scheme = BranchingScheme(instance)
-        for i in instance.locations:
-            for j in instance.locations:
-                print(instance.cost(i.id, j.id), end=" ")
-            print("")
-
         if args.algorithm == "greedy":
             output = treesearchsolverpy.greedy(
                 branching_scheme)

@@ -4,7 +4,6 @@ from operator import attrgetter, le
 from re import DEBUG
 import numpy as np
 
-DEBUG = True
 INF = 9999999
 
 class Location:
@@ -104,9 +103,10 @@ class Instance:
         return max
 
 def dynamic_programming(instance:Instance):
-    depot = instance.locations[0]
     listClient = [v for v in instance.locations][1:]
     nbClient = len(listClient)
+    if (nbClient == 0):
+        return []
     # TODO START
     min_path_values = [instance.cost(0, listClient[i].id) for i in range (nbClient)]
     predecessor = [None for _ in range(nbClient)]
@@ -127,8 +127,6 @@ def dynamic_programming(instance:Instance):
                     visited_clients[j] = {i}.union(previous_visited_clients[i])
         if min_path_values == previous_values:
             break
-    if (nbClient == 0):
-        return []
     # then pick best cycle by adding the edge (u, depot) to the shortest path (depot, u)
     best_path_end = min([(i, min_path_values[i] + instance.cost(listClient[i].id, 0)) for i in range(nbClient)], key= lambda a : a[1])
     current = best_path_end[0]
@@ -169,9 +167,7 @@ if __name__ == "__main__":
 
     if args.algorithm == "dynamic_programming":
         instance = Instance(args.instance)
-        solution = []
-        if (len(instance.locations)>1):
-            solution = dynamic_programming(instance)
+        solution = dynamic_programming(instance)
         if args.certificate is not None:
             data = {"locations": solution}
             with open(args.certificate, 'w') as json_file:

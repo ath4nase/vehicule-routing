@@ -130,7 +130,6 @@ class PricingSolver:
         bs = elp.BranchingScheme(pricing_instance)
         output = treesearchsolverpy.iterative_beam_search(bs, time_limit=30, verbose=False)
         res = bs.to_solution(output["solution_pool"].best)
-        print(res)
         # TODO END
 
         # Retrieve column.
