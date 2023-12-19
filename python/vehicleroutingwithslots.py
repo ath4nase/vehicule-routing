@@ -1,6 +1,8 @@
 import json
 import math
 import columngenerationsolverpy
+import treesearchsolverpy
+import elementaryshortestpathwithslots as elp
 
 
 class Location:
@@ -92,25 +94,61 @@ class PricingSolver:
     def __init__(self, instance):
         self.instance = instance
         # TODO START
+        self.already_visited : list[Location] = None
         # TODO END
 
     def initialize_pricing(self, columns, fixed_columns):
         # TODO START
-        pass
+        self.already_visited = [0 for _ in range(len(instance.locations))]
+        self.already_visited[0] = 1
+        for column_id, column_value in fixed_columns:
+            column = columns[column_id]
+            for row_index, row_coefficient in zip(column.row_indices, column.row_coefficients):
+                self.already_visited[row_index] += column_value*row_coefficient
         # TODO END
 
     def solve_pricing(self, duals):
         # Build subproblem instance.
         # TODO START
+        depot = instance.locations[0]
+        listClient : list[Location] = [depot]
+        for i in range(len(instance.locations)):
+            if (self.already_visited[i] != 0):
+                continue
+            listClient.append( instance.locations[i])
+        nbClient = len(listClient)
+        if nbClient == 0 :
+            return []
+        pricing_instance = elp.Instance()
+        for loc in listClient:
+            pricing_instance.add_location(loc.visit_intervals, loc.x, loc.y, duals[loc.id])
+
         # TODO END
 
         # Solve subproblem instance.
         # TODO START
+        bs = elp.BranchingScheme(pricing_instance)
+        output = treesearchsolverpy.iterative_beam_search(bs, time_limit=30, verbose=False)
+        res = bs.to_solution(output["solution_pool"].best)
         # TODO END
 
         # Retrieve column.
         column = columngenerationsolverpy.Column()
         # TODO START
+        column.extra = [v for v in res]
+        column.objective_coefficient = 0
+        if res == []:
+            return [column]
+        u = 0
+        column.row_indices.append(u)
+        column.row_coefficients.append(1)
+        for i in range(len(res)):
+            v = res[i]
+            column.row_indices.append(v)
+            column.row_coefficients.append(1)
+            column.objective_coefficient += instance.duration(u, v)
+            u = v
+        column.objective_coefficient += instance.duration(v, depot.id)
         # TODO END
 
         return [column]
@@ -118,8 +156,28 @@ class PricingSolver:
 
 def get_parameters(instance):
     # TODO START
-    number_of_constraints = None
+    number_of_constraints = len(instance.locations)
     p = columngenerationsolverpy.Parameters(number_of_constraints)
+    p.objective_sense = "min"
+    if number_of_constraints != 0:
+        # column bounds
+        p.column_lower_bound = 0
+        p.column_upper_bound = 1
+        # row bounds
+        p.row_lower_bounds[0] = 0
+        p.row_upper_bounds[0] = len(instance.locations) - 1
+        p.row_coefficient_lower_bounds[0] = 1
+        p.row_coefficient_upper_bounds[0] = 1
+        for i in range(1, number_of_constraints):
+            p.row_lower_bounds[i] = 1
+            p.row_upper_bounds[i] = 1
+            p.row_coefficient_lower_bounds[i] = 0
+            p.row_coefficient_upper_bounds[i] = 1
+        values = []
+        for i in range (len(instance.locations)):
+            for j in range (len(instance.locations)):
+                values.append(instance.duration(i, j))
+        p.dummy_column_objective_coefficient = 3*max(values)
     # TODO END
     # Pricing solver.
     p.pricing_solver = PricingSolver(instance)
@@ -130,7 +188,8 @@ def to_solution(columns, fixed_columns):
     solution = []
     for column, value in fixed_columns:
         # TODO START
-        pass
+        tour = [v for v in column.extra]
+        solution.append(tour)
         # TODO END
     return solution
 

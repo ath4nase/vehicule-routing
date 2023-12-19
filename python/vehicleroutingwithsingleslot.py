@@ -1,7 +1,7 @@
 import json
 import math
-from operator import attrgetter
 import columngenerationsolverpy
+import elementaryshortestpathwithsingleslot as elp
 
 INF = 100000000
 DEBUG = False
@@ -115,91 +115,43 @@ class PricingSolver:
         # Build subproblem instance.
         # TODO START
         depot : Location = instance.locations[0]
-        depot.visit_interval = [0, 0]
-        listClient  : list[Location]= []
+        #depot.visit_interval = [0, 0]
+        listClient : list[Location]= [depot]
         for i in range(len(instance.locations)):
-            if (self.already_visited[i] > .5):
+            if (self.already_visited[i] != 0):
                 continue
             listClient.append(instance.locations[i])
         nbClient = len(listClient)
         if (nbClient == 0):
             return []
-        if DEBUG:
-            print("-- To visit--")
-            print([v.id for v in listClient])
+        pricing_instance = elp.Instance()
+        for loc in listClient:
+            pricing_instance.add_location(loc.visit_interval, loc.x, loc.y, duals[loc.id])
+
         # TODO END
 
         # Solve subproblem instance.
         # TODO START
-    ################################################
-        if DEBUG:
-            for i in range(len(listClient)):
-                for j in range(len(listClient)):
-                    if i != j:
-                        print(reducedcostIdToId(i, j, listClient, duals), end=" ")
-                    else:
-                        print(0, end=" ")
-                print("")
-
-            print("--Loc--")
-            for i in instance.locations:
-                print(i.visit_interval)
-    ################################################
-
-        min_path_values = [reducedcostIdToId(-1, i, listClient, duals) for i in range (nbClient)]
-        predecessor = [None for _ in range(nbClient)]
-        visited_clients = [{} for _ in range(nbClient)]
-        previous_visited_clients = [v for v in visited_clients]
-        previous_values = [v for v in min_path_values]
-
-        if DEBUG:
-            print("--Dual values--")
-            print(duals)
-
-        # computing minimal path from depot for all clients
-        # if values doesn't change, finished. |V|-1 iteration at most
-        while(True): 
-            previous_values = [v for v in min_path_values]
-            previous_visited_clients = [v for v in visited_clients]
-            for i in range(nbClient):
-                for j in range(nbClient):
-                    if feasible_and_improve(i, j, listClient, previous_values, min_path_values, previous_visited_clients, duals):
-                        predecessor[j] = i
-                        min_path_values[j] =  previous_values[i] + reducedcostIdToId(i, j, listClient, duals)
-                        visited_clients[j] = {i}.union(previous_visited_clients[i])
-            if min_path_values == previous_values:
-                break
-        # then pick best cycle by adding the edge (u, depot) to the shortest path (depot, u)
-        best_path_end = min([(i, min_path_values[i] + reducedcostIdToId(i, -1, listClient, duals)) for i in range(nbClient)], key= lambda a : a[1])
-        current = best_path_end[0]
-        res : list[Location] = []
-        while current != None:
-            res.append(listClient[current])
-            current = predecessor[current]
-        
-        res.reverse()
-        if DEBUG:
-            print("--Column--")
-            print ([loc.id for loc in res])
+        res = elp.dynamic_programming(pricing_instance)
         # TODO END
 
         # Retrieve column.
         column = columngenerationsolverpy.Column()
-        column.extra = [v for v in res]
         # TODO START
+        column.extra = [v for v in res]
         column.objective_coefficient = 0
         if res == []:
             return [column]
-        u = depot
-        column.row_indices.append(u.id)
+        u = 0
+        column.row_indices.append(u)
         column.row_coefficients.append(1)
         for i in range(len(res)):
             v = res[i]
-            column.row_indices.append(v.id)
+            column.row_indices.append(v)
             column.row_coefficients.append(1)
-            column.objective_coefficient += instance.duration(u.id, v.id)
+            column.objective_coefficient += instance.duration(u, v)
             u = v
-        column.objective_coefficient += instance.duration(v.id, depot.id)
+        column.objective_coefficient += instance.duration(v, depot.id)
         if DEBUG:
             print("--Column value")
             print(column.objective_coefficient)
@@ -259,7 +211,7 @@ def get_parameters(instance: Instance):
 def to_solution(columns, fixed_columns):
     solution = []
     for column, value in fixed_columns:
-        tour = [v.id for v in column.extra]
+        tour = [v for v in column.extra]
         solution.append(tour)
     return solution
 

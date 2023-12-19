@@ -122,7 +122,7 @@ class BranchingScheme:
         node = self.Node()
         node.father = None
         node.path = []
-        node.last = instance.locations[0]
+        node.last = self.instance.locations[0]
         node.cost = 0
         node.currentTime = 0
         node.guide = 0
@@ -137,7 +137,7 @@ class BranchingScheme:
         if next_loc == 0:
             arrivalTime = 0
         else:
-            arrivalTime = father.currentTime + instance.duration(father.last.id,
+            arrivalTime = father.currentTime + self.instance.duration(father.last.id,
                                                                  next_loc)
         # nextchildpos incrementation
         if father.next_child_pos[1] == 0:
@@ -149,7 +149,7 @@ class BranchingScheme:
         if next_loc in father.path:
             return None
 
-        if arrivalTime > instance.locations[next_loc].visit_intervals[current_interval][0]:
+        if arrivalTime > self.instance.locations[next_loc].visit_intervals[current_interval][0]:
             return None
 
         # new child node
@@ -157,12 +157,12 @@ class BranchingScheme:
         child.father = father
         child.path = father.path.copy()
         child.path.append(next_loc)
-        child.last = instance.locations[next_loc]
+        child.last = self.instance.locations[next_loc]
         added_cost = 0 if father.last.id == child.last.id else \
-            instance.cost(father.last.id, child.last.id)
+            self.instance.cost(father.last.id, child.last.id)
         child.cost = father.cost + added_cost
         child.guide = child.cost
-        child.currentTime = instance.locations[next_loc].visit_intervals[current_interval][1]
+        child.currentTime = self.instance.locations[next_loc].visit_intervals[current_interval][1]
         child.id = self.id
         self.id += 1
         return child
@@ -255,7 +255,6 @@ class BranchingScheme:
         locations.reverse()
         if locations != []:
             locations.pop()
-        print(locations)
         return locations
         # TODO END
 

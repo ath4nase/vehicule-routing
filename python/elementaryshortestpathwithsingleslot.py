@@ -7,24 +7,12 @@ import numpy as np
 DEBUG = True
 INF = 9999999
 
-INF = 10000000
-
 class Location:
     id = -1
     visit_interval: list[int]
     x = 0
     y = 0
     value = 0
-
-    def depot():
-        depot = Location()
-        depot.visit_interval = [-INF, INF]
-        return depot
-    
-    def get_beginning(self):
-        return self.visit_interval[0]
-    def get_end(self):
-        return self.visit_interval[1]
 
 
 class Instance:
@@ -116,7 +104,7 @@ class Instance:
         return max
 
 def dynamic_programming(instance:Instance):
-    depot = Location.depot()
+    depot = instance.locations[0]
     listClient = [v for v in instance.locations][1:]
     nbClient = len(listClient)
     # TODO START
@@ -133,7 +121,7 @@ def dynamic_programming(instance:Instance):
         previous_visited_clients = [v for v in visited_clients]
         for i in range(nbClient):
             for j in range(nbClient):
-                if feasible_and_improve(listClient[i].id, listClient[j].id, previous_values, min_path_values, previous_visited_clients):
+                if feasible_and_improve(listClient[i].id, listClient[j].id, instance, previous_values, min_path_values, previous_visited_clients):
                     predecessor[j] = i
                     min_path_values[j] =  previous_values[i] + instance.cost(listClient[i].id, listClient[j].id)
                     visited_clients[j] = {i}.union(previous_visited_clients[i])
@@ -153,7 +141,7 @@ def dynamic_programming(instance:Instance):
     # TODO END
     return res
 
-def feasible_and_improve(i, j, old_values, new_values, visited):
+def feasible_and_improve(i, j, instance, old_values, new_values, visited):
     feasible = i != j and (i == 0 or instance.locations[i].visit_interval[1] + instance.duration(i, j) <= instance.locations[j].visit_interval[0])
     elementary = not j in visited[i-1]
     improved = old_values[i-1] + instance.cost(i, j) < new_values[j-1]
