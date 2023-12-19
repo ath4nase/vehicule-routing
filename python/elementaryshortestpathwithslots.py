@@ -1,5 +1,6 @@
 import json
 import math
+from sortedcontainers.sortedlist import add
 import treesearchsolverpy
 from functools import total_ordering
 
@@ -140,9 +141,9 @@ class BranchingScheme:
                                                                  next_loc)
         # nextchildpos incrementation
         if father.next_child_pos[1] == 0:
-            father.next_child_pos = (next_loc, 1) 
+            father.next_child_pos = (next_loc, 1)
         else:
-            father.next_child_pos = (next_loc+1, 0) 
+            father.next_child_pos = (next_loc+1, 0)
 
         # already visited node
         if next_loc in father.path:
@@ -157,7 +158,7 @@ class BranchingScheme:
         child.path = father.path.copy()
         child.path.append(next_loc)
         child.last = instance.locations[next_loc]
-        added_cost = 0 if child.last.id == 0 else \
+        added_cost = 0 if father.last.id == child.last.id else \
             instance.cost(father.last.id, child.last.id)
         child.cost = father.cost + added_cost
         child.guide = child.cost
@@ -169,7 +170,7 @@ class BranchingScheme:
 
     def infertile(self, node):
         # TODO START
-        return node.next_child_pos[0] >= len(self.instance.locations)
+        return node.next_child_pos[0] == len(self.instance.locations)
         # TODO END
 
     def leaf(self, node):
@@ -179,28 +180,31 @@ class BranchingScheme:
 
     def bound(self, node_1, node_2):
         # TODO START
+        if node_1.last.id != 0:
+            return False
         if node_2.last.id != 0:
             return False
-        else:
-            add_cost1 = 0 if node_1.id == 0 else self.instance.cost(
-                node_1.last.id, 0)
-            add_cost2 = 0 if node_2.id == 0 else self.instance.cost(
-                node_2.last.id, 0)
-            cost1 = node_1.cost + add_cost1
-            cost2 = node_2.cost + add_cost2
-            return cost1 >= cost2
+        # print(node_1.path, " -> ", node_1.cost)
+        # print(node_2.path, " -> ", node_2.cost)
+        return node_1.cost < node_2.cost
         # TODO END
 
     # Solution pool.
 
     def better(self, node_1, node_2):
         # TODO START
+        if node_1.last.id != 0:
+            return False
+        if node_2.last.id != 0:
+            return False
+        # print(node_1.path, " -> ", node_1.cost)
+        # print(node_2.path, " -> ", node_2.cost)
         return node_1.cost < node_2.cost
         # TODO END
 
     def equals(self, node_1, node_2):
         # TODO START
-        return False
+        return node_1.path == node_2.path
         # TODO END
 
     # Dominances.
@@ -302,6 +306,11 @@ if __name__ == "__main__":
     else:
         instance = Instance(args.instance)
         branching_scheme = BranchingScheme(instance)
+        for i in instance.locations:
+            for j in instance.locations:
+                print(instance.cost(i.id, j.id), end=" ")
+            print("")
+
         if args.algorithm == "greedy":
             output = treesearchsolverpy.greedy(
                 branching_scheme)
