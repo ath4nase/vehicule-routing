@@ -102,6 +102,7 @@ class PricingSolver:
         # TODO END
 
     def initialize_pricing(self, columns, fixed_columns):
+        print("Coucou")
         # TODO START
         self.already_visited = [0 for _ in range(len(instance.locations))]
         self.already_visited[0] = 1
@@ -121,9 +122,6 @@ class PricingSolver:
             if (self.already_visited[i] != 0):
                 continue
             listClient.append(instance.locations[i])
-        nbClient = len(listClient)
-        if (nbClient == 0):
-            return []
         pricing_instance = elp.Instance()
         for loc in listClient:
             pricing_instance.add_location(loc.visit_interval, loc.x, loc.y, duals[loc.id])
@@ -133,6 +131,7 @@ class PricingSolver:
         # Solve subproblem instance.
         # TODO START
         res = elp.dynamic_programming(pricing_instance)
+        print(res)
         # TODO END
 
         # Retrieve column.
@@ -141,6 +140,8 @@ class PricingSolver:
         column.extra = [v for v in res]
         column.objective_coefficient = 0
         if res == []:
+            column.row_indices.append(0)
+            column.row_coefficients.append(0)
             return [column]
         u = 0
         column.row_indices.append(u)
