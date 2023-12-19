@@ -249,7 +249,7 @@ class BranchingScheme:
         child.cost = father.cost+self.instance.cost(father.idP,idNext)
         
         print(child.path)
-        print(child.cost)# + self.instance.cost(idNext,0))
+        print(child.cost + self.instance.cost(idNext,0))
         print(child.time)
         
         child.next_child(self.instance)
@@ -303,7 +303,7 @@ class BranchingScheme:
 
     def equals(self, node_1, node_2):
         # TODO START
-        """if(node_1.idP != 0 or node_1.idP is None):
+        if(node_1.idP != 0 or node_1.idP is None):
             return False
         if(node_2.idP != 0 or node_2.idP is None):
             return False
@@ -311,7 +311,7 @@ class BranchingScheme:
         d1 = node_1.cost + self.instance.cost(node_1.idP, 0)
         # Compute the objective value of node_2.
         d2 = node_2.cost + self.instance.cost(node_2.idP, 0)
-        return d1 == d2"""
+        return d1 == d2
         return False
         pass
         # TODO END
@@ -320,7 +320,7 @@ class BranchingScheme:
 
     def comparable(self, node):
         # TODO START
-        return (node.idP==0 and self.node.idP==0)
+        return (node.idP==0 and self.Node.idP==0)
         pass
         # TODO END
 
