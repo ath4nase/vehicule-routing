@@ -1,6 +1,6 @@
 import json
 import math
-from operator import attrgetter
+from operator import attrgetter, le
 from re import DEBUG
 import numpy as np
 
@@ -98,9 +98,17 @@ class Instance:
 
 
 def dynamic_programming(instance):
-    depot = Location.depot()
     listClient = [v for v in instance.locations][1:]
     nbClient = len(listClient)
+
+    print("-------------------")
+    for i in range(nbClient+1):
+        for j in range(nbClient+1):
+            print(instance.cost(i, j), end=" ")
+        print("")
+
+
+
     min_path_values = [instance.cost(0, listClient[i].id)
                        for i in range(nbClient)]
     predecessor = [None for _ in range(nbClient)]
@@ -111,6 +119,7 @@ def dynamic_programming(instance):
         previous_values = [v for v in min_path_values]
         previous_visited_clients = [v for v in visited_clients]
         for i in range(nbClient):
+            print(min_path_values)
             for j in range(nbClient):
                 if feasible_and_improve(listClient[i].id, listClient[j].id, previous_values, min_path_values, previous_visited_clients):
                     predecessor[j] = i

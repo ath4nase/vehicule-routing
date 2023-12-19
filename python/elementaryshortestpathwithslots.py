@@ -100,12 +100,12 @@ class BranchingScheme:
 
         id = None
         father = None
-        visited = None
-        previous = None
-        path = None
+        last = None
+        path = []
+        currentTime = 0
         cost = None
         guide = None
-        next_child_pos = 0
+        next_child_pos = 1
 
         def __lt__(self, other):
             if self.guide != other.guide:
@@ -120,52 +120,89 @@ class BranchingScheme:
         # The root contains the depot
         node = self.Node()
         node.father = None
-        node.visited = [self.id]
-        node.previous = 0
         node.path = []
+        node.last = instance.locations[0]
         node.cost = 0
+        node.currentTime = 0
         node.guide = 0
         node.id = self.id
         self.id += 1
         return node
 
     def next_child(self, father):
-         
-        pass
+        next_loc = father.next_child_pos
+        # not accessible node
+        arrivalTime = father.currentTime + instance.duration(father.last.id,
+                                                             father.next_child_pos)
+        father.next_child_pos += 1
+        if arrivalTime > instance.locations[next_loc].visit_intervals[0][0] \
+           and arrivalTime > instance.locations[next_loc].visit_intervals[1][0]:
+            return None
+        # already visited node
+        if father.path is not None and next_loc in father.path:
+            return None
+        # to know which visit interval is used
+        nbinterval = 1 if arrivalTime > instance.locations[next_loc].visit_intervals[0][0] else 0
+        # new child node
+        child = self.Node()
+        child.father = father
+        temp_path = father.path.copy()
+        temp_path.append(next_loc)
+        child.path = temp_path
+        child.last = instance.locations[next_loc]
+        child.cost = father.cost + instance.cost(father.last.id, child.last.id)
+        child.guide = child.cost
+        child.currentTime = instance.locations[next_loc].visit_intervals[nbinterval][1]
+        child.id = self.id
+        self.id += 1
+        return child
         # TODO END
 
     def infertile(self, node):
         # TODO START
-        pass
+        return node.next_child_pos >= len(self.instance.locations)
         # TODO END
 
     def leaf(self, node):
         # TODO START
-        pass
+        if (len(node.path) == len(self.instance.locations)):
+            return True
         # TODO END
 
     def bound(self, node_1, node_2):
         # TODO START
-        pass
+        add_cost1 = 0 if node_1.id == 0 else self.instance.cost(
+            node_1.last.id, 0)
+        add_cost2 = 0 if node_2.id == 0 else self.instance.cost(
+            node_2.last.id, 0)
+        cost1 = node_1.cost + add_cost1
+        cost2 = node_2.cost + add_cost2
+        return cost1 >= cost2
         # TODO END
 
     # Solution pool.
 
     def better(self, node_1, node_2):
         # TODO START
-        pass
+        add_cost1 = 0 if node_1.id == 0 else self.instance.cost(
+            node_1.last.id, 0)
+        add_cost2 = 0 if node_2.id == 0 else self.instance.cost(
+            node_2.last.id, 0)
+        cost1 = node_1.cost + add_cost1
+        cost2 = node_2.cost + add_cost2
+        return cost1 < cost2
         # TODO END
 
     def equals(self, node_1, node_2):
         # TODO START
-        pass
+        return False
         # TODO END
 
     # Dominances.
 
     def comparable(self, node):
         # TODO START
-        pass
+        return True
         # TODO END
 
     class Bucket:
@@ -175,29 +212,40 @@ class BranchingScheme:
 
         def __hash__(self):
             # TODO START
-            pass
+            return hash((self.node.last, self.node.path))
             # TODO END
 
         def __eq__(self, other):
-            # TODO START
-            pass
-            # TODO END
+            return (
+                # Same last location.
+                self.node.last == other.node.last
+                # Same visited locations.
+                and self.node.path == other.node.path)
 
     def dominates(self, node_1, node_2):
         # TODO START
-        pass
+        if node_1.cost <= node_2.cost:
+            return True
+        return False
         # TODO END
 
     # Outputs.
 
     def display(self, node):
         # TODO START
-        pass
+        return str(node.cost)
         # TODO END
 
     def to_solution(self, node):
         # TODO START
-        pass
+        locations = []
+        node_tmp = node
+        while node_tmp.father is not None:
+            locations.append(node_tmp.last.id)
+            node_tmp = node_tmp.father
+        locations.reverse()
+        print(locations)
+        return locations
         # TODO END
 
 
