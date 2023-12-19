@@ -128,14 +128,14 @@ class PricingSolver:
         # Solve subproblem instance.
         # TODO START
         bs = elp.BranchingScheme(pricing_instance)
-        output = treesearchsolverpy.iterative_beam_search(bs, time_limit=30, verbose=False)
+        output = treesearchsolverpy.iterative_beam_search(bs, time_limit=3, verbose=False)
         res = bs.to_solution(output["solution_pool"].best)
         # TODO END
 
         # Retrieve column.
         column = columngenerationsolverpy.Column()
         # TODO START
-        column.extra = [v for v in res]
+        column.extra = [listClient[v].id for v in res]
         column.objective_coefficient = 0
         if res == []:
             return [column]
@@ -143,7 +143,7 @@ class PricingSolver:
         column.row_indices.append(u)
         column.row_coefficients.append(1)
         for i in range(len(res)):
-            v = res[i]
+            v = column.extra[i]
             column.row_indices.append(v)
             column.row_coefficients.append(1)
             column.objective_coefficient += instance.duration(u, v)

@@ -108,7 +108,7 @@ def dynamic_programming(instance:Instance):
     if (nbClient == 0):
         return []
     # TODO START
-    min_path_values = [instance.cost(0, listClient[i].id) for i in range (nbClient)]
+    min_path_values = [instance.cost(0, i+1) for i in range (nbClient)]
     predecessor = [None for _ in range(nbClient)]
     visited_clients = [{} for _ in range(nbClient)]
     previous_visited_clients = [v for v in visited_clients]
@@ -121,18 +121,18 @@ def dynamic_programming(instance:Instance):
         previous_visited_clients = [v for v in visited_clients]
         for i in range(nbClient):
             for j in range(nbClient):
-                if feasible_and_improve(listClient[i].id, listClient[j].id, instance, previous_values, min_path_values, previous_visited_clients):
+                if feasible_and_improve(i, j, instance, previous_values, min_path_values, previous_visited_clients):
                     predecessor[j] = i
-                    min_path_values[j] =  previous_values[i] + instance.cost(listClient[i].id, listClient[j].id)
+                    min_path_values[j] =  previous_values[i] + instance.cost(i+1, j+1)
                     visited_clients[j] = {i}.union(previous_visited_clients[i])
         if min_path_values == previous_values:
             break
     # then pick best cycle by adding the edge (u, depot) to the shortest path (depot, u)
-    best_path_end = min([(i, min_path_values[i] + instance.cost(listClient[i].id, 0)) for i in range(nbClient)], key= lambda a : a[1])
+    best_path_end = min([(i, min_path_values[i] + instance.cost(i+1, 0)) for i in range(nbClient)], key= lambda a : a[1])
     current = best_path_end[0]
     res : list[Location] = []
     while current != None:
-        res.append(listClient[current].id)
+        res.append(current + 1)
         current = predecessor[current]
     
     res.reverse()
@@ -140,9 +140,9 @@ def dynamic_programming(instance:Instance):
     return res
 
 def feasible_and_improve(i, j, instance, old_values, new_values, visited):
-    feasible = i != j and (i == 0 or instance.locations[i].visit_interval[1] + instance.duration(i, j) <= instance.locations[j].visit_interval[0])
-    elementary = not j in visited[i-1]
-    improved = old_values[i-1] + instance.cost(i, j) < new_values[j-1]
+    feasible = i != j and instance.locations[i+1].visit_interval[1] + instance.duration(i+1, j+1) <= instance.locations[j+1].visit_interval[0]
+    elementary = not j in visited[i]
+    improved = old_values[i] + instance.cost(i+1, j+1) < new_values[j]
     return feasible and elementary and improved
 
 if __name__ == "__main__":
