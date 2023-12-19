@@ -1,5 +1,11 @@
 import json
 import math
+from operator import attrgetter, le
+from re import DEBUG
+import numpy as np
+
+DEBUG = True
+INF = 9999999
 
 INF = 10000000
 
@@ -31,10 +37,10 @@ class Instance:
             with open(filepath) as json_file:
                 data = json.load(json_file)
                 locations = zip(
-                        data["visit_intervals"],
-                        data["xs"],
-                        data["ys"],
-                        data["values"])
+                    data["visit_intervals"],
+                    data["xs"],
+                    data["ys"],
+                    data["values"])
                 for (intervals, x, y, value) in locations:
                     self.add_location(intervals[0], x, y, value)
 
@@ -93,9 +99,9 @@ class Instance:
             else :
                 number_of_duplicates = 0
             is_feasible = (
-                    (number_of_duplicates == 0)
-                    and (on_time)
-                    and 0 not in locations)
+                (number_of_duplicates == 0)
+                and (on_time)
+                and 0 not in locations)
             print(f"Number of duplicates: {number_of_duplicates}")
             print(f"On time: {on_time}")
             print(f"Feasible: {is_feasible}")
@@ -157,19 +163,19 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='')
     parser.add_argument(
-            "-a", "--algorithm",
-            type=str,
-            default="dynamic_programming",
-            help='')
+        "-a", "--algorithm",
+        type=str,
+        default="dynamic_programming",
+        help='')
     parser.add_argument(
-            "-i", "--instance",
-            type=str,
-            help='')
+        "-i", "--instance",
+        type=str,
+        help='')
     parser.add_argument(
-            "-c", "--certificate",
-            type=str,
-            default=None,
-            help='')
+        "-c", "--certificate",
+        type=str,
+        default=None,
+        help='')
 
     args = parser.parse_args()
 
