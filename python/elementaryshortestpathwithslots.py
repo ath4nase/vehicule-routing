@@ -105,7 +105,7 @@ class BranchingScheme:
         currentTime = 0
         cost = None
         guide = None
-        next_child_pos = 1
+        next_child_pos = 0
 
         def __lt__(self, other):
             if self.guide != other.guide:
@@ -134,6 +134,8 @@ class BranchingScheme:
         # not accessible node
         arrivalTime = father.currentTime + instance.duration(father.last.id,
                                                              father.next_child_pos)
+        if father.next_child_pos == 0:
+            arrivalTime = 0
         father.next_child_pos += 1
         if arrivalTime > instance.locations[next_loc].visit_intervals[0][0] \
            and arrivalTime > instance.locations[next_loc].visit_intervals[1][0]:
@@ -143,18 +145,24 @@ class BranchingScheme:
             return None
         # to know which visit interval is used
         nbinterval = 1 if arrivalTime > instance.locations[next_loc].visit_intervals[0][0] else 0
+        print("nbinterval = ", nbinterval)
         # new child node
+        print("next_loc = ", next_loc)
         child = self.Node()
         child.father = father
-        temp_path = father.path.copy()
-        temp_path.append(next_loc)
-        child.path = temp_path
+        child.path = father.path.copy()
+        child.path.append(next_loc)
         child.last = instance.locations[next_loc]
-        child.cost = father.cost + instance.cost(father.last.id, child.last.id)
+        added_cost = 0 if child.last.id == 0 else \
+            instance.cost(father.last.id, child.last.id)
+        child.cost = father.cost + added_cost
         child.guide = child.cost
         child.currentTime = instance.locations[next_loc].visit_intervals[nbinterval][1]
         child.id = self.id
         self.id += 1
+        print("last_id", child.last.id)
+        print("path = ", child.path, " cost = ", child.cost)
+        print("----------------")
         return child
         # TODO END
 
@@ -165,19 +173,21 @@ class BranchingScheme:
 
     def leaf(self, node):
         # TODO START
-        if (len(node.path) == len(self.instance.locations)):
-            return True
+        return node.last.id == 0
         # TODO END
 
     def bound(self, node_1, node_2):
         # TODO START
-        add_cost1 = 0 if node_1.id == 0 else self.instance.cost(
-            node_1.last.id, 0)
-        add_cost2 = 0 if node_2.id == 0 else self.instance.cost(
-            node_2.last.id, 0)
-        cost1 = node_1.cost + add_cost1
-        cost2 = node_2.cost + add_cost2
-        return cost1 >= cost2
+        if node_2.last.id != 0:
+            return False
+        else:
+            add_cost1 = 0 if node_1.id == 0 else self.instance.cost(
+                node_1.last.id, 0)
+            add_cost2 = 0 if node_2.id == 0 else self.instance.cost(
+                node_2.last.id, 0)
+            cost1 = node_1.cost + add_cost1
+            cost2 = node_2.cost + add_cost2
+            return cost1 >= cost2
         # TODO END
 
     # Solution pool.
@@ -212,7 +222,7 @@ class BranchingScheme:
 
         def __hash__(self):
             # TODO START
-            return hash((self.node.last, self.node.path))
+            return hash((self.node.last, self.node.cost))
             # TODO END
 
         def __eq__(self, other):
@@ -244,6 +254,7 @@ class BranchingScheme:
             locations.append(node_tmp.last.id)
             node_tmp = node_tmp.father
         locations.reverse()
+        locations.pop()
         print(locations)
         return locations
         # TODO END
@@ -294,6 +305,12 @@ if __name__ == "__main__":
 
     else:
         instance = Instance(args.instance)
+        for i in instance.locations:
+            print(i.visit_intervals)
+        for i in instance.locations:
+            for j in instance.locations:
+                print(instance.cost(i.id, j.id), end=" ")
+            print("")
         branching_scheme = BranchingScheme(instance)
         if args.algorithm == "greedy":
             output = treesearchsolverpy.greedy(
