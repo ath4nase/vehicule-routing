@@ -105,7 +105,7 @@ class BranchingScheme:
         currentTime = 0
         cost = None
         guide = None
-        next_child_pos = 0
+        next_child_pos = (0, 1)
 
         def __lt__(self, other):
             if self.guide != other.guide:
@@ -130,24 +130,28 @@ class BranchingScheme:
         return node
 
     def next_child(self, father):
-        next_loc = father.next_child_pos
+        next_loc = father.next_child_pos[0]
+        current_interval = father.next_child_pos[1]
         # not accessible node
-        arrivalTime = father.currentTime + instance.duration(father.last.id,
-                                                             father.next_child_pos)
-        if father.next_child_pos == 0:
+        if next_loc == 0:
             arrivalTime = 0
-        father.next_child_pos += 1
-        if arrivalTime > instance.locations[next_loc].visit_intervals[0][0] \
-           and arrivalTime > instance.locations[next_loc].visit_intervals[1][0]:
-            return None
+        else:
+            arrivalTime = father.currentTime + instance.duration(father.last.id,
+                                                                 next_loc)
+        # nextchildpos incrementation
+        if father.next_child_pos[1] == 0:
+            father.next_child_pos = (next_loc, 1) 
+        else:
+            father.next_child_pos = (next_loc+1, 0) 
+
         # already visited node
-        if father.path is not None and next_loc in father.path:
+        if next_loc in father.path:
             return None
-        # to know which visit interval is used
-        nbinterval = 1 if arrivalTime > instance.locations[next_loc].visit_intervals[0][0] else 0
-        print("nbinterval = ", nbinterval)
+
+        if arrivalTime > instance.locations[next_loc].visit_intervals[current_interval][0]:
+            return None
+
         # new child node
-        print("next_loc = ", next_loc)
         child = self.Node()
         child.father = father
         child.path = father.path.copy()
@@ -157,18 +161,15 @@ class BranchingScheme:
             instance.cost(father.last.id, child.last.id)
         child.cost = father.cost + added_cost
         child.guide = child.cost
-        child.currentTime = instance.locations[next_loc].visit_intervals[nbinterval][1]
+        child.currentTime = instance.locations[next_loc].visit_intervals[current_interval][1]
         child.id = self.id
         self.id += 1
-        print("last_id", child.last.id)
-        print("path = ", child.path, " cost = ", child.cost)
-        print("----------------")
         return child
         # TODO END
 
     def infertile(self, node):
         # TODO START
-        return node.next_child_pos >= len(self.instance.locations)
+        return node.next_child_pos[0] >= len(self.instance.locations)
         # TODO END
 
     def leaf(self, node):
@@ -194,13 +195,7 @@ class BranchingScheme:
 
     def better(self, node_1, node_2):
         # TODO START
-        add_cost1 = 0 if node_1.id == 0 else self.instance.cost(
-            node_1.last.id, 0)
-        add_cost2 = 0 if node_2.id == 0 else self.instance.cost(
-            node_2.last.id, 0)
-        cost1 = node_1.cost + add_cost1
-        cost2 = node_2.cost + add_cost2
-        return cost1 < cost2
+        return node_1.cost < node_2.cost
         # TODO END
 
     def equals(self, node_1, node_2):
@@ -254,7 +249,8 @@ class BranchingScheme:
             locations.append(node_tmp.last.id)
             node_tmp = node_tmp.father
         locations.reverse()
-        locations.pop()
+        if locations != []:
+            locations.pop()
         print(locations)
         return locations
         # TODO END
@@ -305,12 +301,6 @@ if __name__ == "__main__":
 
     else:
         instance = Instance(args.instance)
-        for i in instance.locations:
-            print(i.visit_intervals)
-        for i in instance.locations:
-            for j in instance.locations:
-                print(instance.cost(i.id, j.id), end=" ")
-            print("")
         branching_scheme = BranchingScheme(instance)
         if args.algorithm == "greedy":
             output = treesearchsolverpy.greedy(
