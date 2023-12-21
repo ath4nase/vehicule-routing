@@ -11,7 +11,7 @@ based on column generation
 To generate results, scripts are provided :
 - *generate_result.sh* :
   - This script generates a result for specified arguments
-  - Usage : `generate_result <PROG TYPE> <INSTANCE NUMBER> <OPTIONS ...>`
+  - Usage : `generate_result <PROG TYPE> <INSTANCE NUMBER>`
 - *generate_al_dp.sh* :
   - This script generates results for dynamic programming
 - *generate_al_ts.sh* :
