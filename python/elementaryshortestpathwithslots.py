@@ -122,7 +122,8 @@ class BranchingScheme:
         node = self.Node()
         node.father = None
         node.path = []
-        node.last = self.instance.locations[0]
+        if self.instance.locations != []:
+            node.last = self.instance.locations[0]
         node.cost = 0
         node.currentTime = 0
         node.guide = 0
@@ -134,6 +135,8 @@ class BranchingScheme:
         next_loc = father.next_child_pos[0]
         current_interval = father.next_child_pos[1]
         # not accessible node
+        if self.instance.locations == []:
+            return None
         if next_loc == 0:
             arrivalTime = 0
         else:
@@ -180,6 +183,8 @@ class BranchingScheme:
 
     def bound(self, node_1, node_2):
         # TODO START
+        if node_1.last is None or node_2.last is None:
+            return False
         if node_1.last.id != 0:
             return False
         if node_2.last.id != 0:
