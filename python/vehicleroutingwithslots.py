@@ -128,7 +128,7 @@ class PricingSolver:
         # Solve subproblem instance.
         # TODO START
         bs = elp.BranchingScheme(pricing_instance)
-        output = treesearchsolverpy.iterative_beam_search(bs, time_limit=3, verbose=False)
+        output = treesearchsolverpy.iterative_beam_search(bs, time_limit=10, verbose=False)
         res = bs.to_solution(output["solution_pool"].best)
         # TODO END
 
